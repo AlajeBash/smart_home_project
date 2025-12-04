@@ -108,7 +108,7 @@ Deployment
   firebase deploy --only hosting
 - Firmware: flash ESP32 using Arduino IDE, PlatformIO, or esptool; implement OTA if desired
 
-Repository layout (recommended / common)
+Repository layout (common)
 - firmware/ or esp32/     — ESP32 firmware source code
 - web-app/ or ui/         — Web application source code
 - docs/                   — Architecture diagrams, wiring diagrams, and notes
@@ -139,8 +139,6 @@ Acknowledgements
 - ESP32 community libraries and examples
 - Open source projects and tutorials that inspired this work
 
-Notes
-- This README is a general, production‑ready overview. If you want, I can add: sample wiring diagrams, example firmware code snippets, Firebase security rules examples, environment variable examples for the web app, or a CONTRIBUTING.md with PR templates.
-- Live demos available at:
+Live demos available at:
   - https://bash-smart-home-esp32.web.app/
   - https://bash-smart-home-esp32.firebaseapp.com/
