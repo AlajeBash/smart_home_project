@@ -1,0 +1,23 @@
+Files and Directories Moved to Front_End/
+=============================================
+
+The following front-end files and directories were moved from the repository root to Front_End/:
+
+1. web/ -> Front_End/web/
+   - web/index.html (Flutter web entry point)
+   - web/manifest.json (Web app manifest)
+   - web/favicon.png (Website favicon)
+   - web/icons/ (Web app icons directory)
+
+Summary:
+--------
+- Total directories moved: 1 (web/)
+- Total files moved: 4 files within web/ directory
+
+Notes:
+------
+- The web/ folder contains Flutter's web deployment artifacts
+- These files are used when building the Flutter app for web platform
+- All files were moved using 'git mv' to preserve history
+- No source code was modified - only file locations changed
+- The core Flutter/Dart code in lib/ remains in place as it compiles to multiple platforms
