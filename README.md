@@ -1,5 +1,7 @@
 # smart_home_front_end
 
+**Repository reorganized: Front-end files moved into Front_End/; Firmware/ added for future firmware code.**
+
 A new Flutter project.
 
 ## Getting Started
