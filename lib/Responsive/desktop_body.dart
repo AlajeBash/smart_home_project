@@ -245,10 +245,10 @@ class _DesktopBodyState extends State<DesktopBody> {
                           width: 6,
                           height: 6,
                           decoration: const BoxDecoration(
-                            color: Colors.emeraldAccent,
+                            color: Colors.greenAccent,
                             shape: BoxShape.circle,
                             boxShadow: [
-                              BoxShadow(color: Colors.emerald, blurRadius: 4, spreadRadius: 1),
+                              BoxShadow(color: Colors.green, blurRadius: 4, spreadRadius: 1),
                             ],
                           ),
                         ),
@@ -560,9 +560,9 @@ class _DesktopBodyState extends State<DesktopBody> {
                     padding: const EdgeInsets.all(12),
                     child: Column(
                       children: [
-                        _buildHealthRow(Icons.check_circle, "Realtime Database", "Active", Colors.emerald),
+                        _buildHealthRow(Icons.check_circle, "Realtime Database", "Active", Colors.green),
                         const SizedBox(height: 10),
-                        _buildHealthRow(Icons.check_circle, "ESP32 Hardware Module", "Connected", Colors.emerald),
+                        _buildHealthRow(Icons.check_circle, "ESP32 Hardware Module", "Connected", Colors.green),
                         const SizedBox(height: 10),
                         _buildHealthRow(Icons.warning, "CO2 Purifier Filter", "Change Soon (15%)", Colors.orange),
                       ],

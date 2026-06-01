@@ -33,7 +33,7 @@ class ClimateTrendsChart extends StatelessWidget {
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, py: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: lineColor.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10),
@@ -149,7 +149,7 @@ class _TrendPainter extends CustomPainter {
     final Path pathArea = Path();
     pathArea.moveTo(points.first.dx, paddingTop + chartHeight);
     for (int i = 0; i < points.length; i++) {
-      pathArea.lineTo(points[i].dx, points[i].y);
+      pathArea.lineTo(points[i].dx, points[i].dy);
     }
     pathArea.lineTo(points.last.dx, paddingTop + chartHeight);
     pathArea.close();
@@ -169,7 +169,7 @@ class _TrendPainter extends CustomPainter {
 
     // Draw Line (Smooth Path)
     final Path linePath = Path();
-    linePath.moveTo(points.first.dx, points.first.y);
+    linePath.moveTo(points.first.dx, points.first.dy);
 
     for (int i = 0; i < points.length - 1; i++) {
       final Offset p0 = points[i];
@@ -177,11 +177,11 @@ class _TrendPainter extends CustomPainter {
       
       // Control points for cubic bezier curve to make lines smooth
       final double controlX1 = p0.dx + stepX / 2;
-      final double controlY1 = p0.y;
+      final double controlY1 = p0.dy;
       final double controlX2 = p1.dx - stepX / 2;
-      final double controlY2 = p1.y;
+      final double controlY2 = p1.dy;
 
-      linePath.cubicTo(controlX1, controlY1, controlX2, controlY2, p1.dx, p1.y);
+      linePath.cubicTo(controlX1, controlY1, controlX2, controlY2, p1.dx, p1.dy);
     }
 
     final Paint linePaint = Paint()

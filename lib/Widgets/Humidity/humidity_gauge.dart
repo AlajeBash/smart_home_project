@@ -65,7 +65,7 @@ class _HumidityGaugeState extends State<HumidityGauge> {
                 thickness: 1.0,
                 color: Colors.white10,
               ),
-              labelStyle: const GaugeLabelStyle(
+              axisLabelStyle: const GaugeTextStyle(
                 color: Colors.white54,
                 fontSize: 8.5,
                 fontWeight: FontWeight.w400,
@@ -90,7 +90,8 @@ class _HumidityGaugeState extends State<HumidityGauge> {
                   enableAnimation: true,
                   animationDuration: 1200,
                   needleLength: 0.8,
-                  needleWidth: 3.5,
+                  needleStartWidth: 1,
+                  needleEndWidth: 3.5,
                   needleColor: primaryColor,
                   knobStyle: KnobStyle(
                     knobRadius: 0.07,
