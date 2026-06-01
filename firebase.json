@@ -1,1 +1,42 @@
-{"database":{"rules":"database.rules.json"},"flutter":{"platforms":{"android":{"default":{"projectId":"bash-smart-home-esp32","appId":"1:412312221607:android:cbe1bbaa166192c0fe2882","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"bash-smart-home-esp32","configurations":{"android":"1:412312221607:android:cbe1bbaa166192c0fe2882","ios":"1:412312221607:ios:651177a91771440cfe2882","macos":"1:412312221607:ios:651177a91771440cfe2882","web":"1:412312221607:web:1f15a09b5bd68185fe2882","windows":"1:412312221607:web:20bd7f386ad93e75fe2882"}}}}}}
+{
+  "database": {
+    "rules": "database.rules.json"
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "bash-smart-home-esp32",
+          "appId": "1:412312221607:android:cbe1bbaa166192c0fe2882",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "bash-smart-home-esp32",
+          "configurations": {
+            "android": "1:412312221607:android:cbe1bbaa166192c0fe2882",
+            "ios": "1:412312221607:ios:651177a91771440cfe2882",
+            "macos": "1:412312221607:ios:651177a91771440cfe2882",
+            "web": "1:412312221607:web:1f15a09b5bd68185fe2882",
+            "windows": "1:412312221607:web:20bd7f386ad93e75fe2882"
+          }
+        }
+      }
+    }
+  }
+}

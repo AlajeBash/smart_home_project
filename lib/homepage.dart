@@ -5,13 +5,10 @@ class Homepage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false, // Add this to remove the debug banner
-      home: ResponsiveLayout(
-        mobileBody: const MobileBody(),
-        tabletBody: const TabletBody(),
-        desktopBody: const DesktopBody(),
-      ),
+    return ResponsiveLayout(
+      mobileBody: const MobileBody(),
+      tabletBody: const TabletBody(),
+      desktopBody: const DesktopBody(),
     );
   }
 }

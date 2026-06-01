@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_gauges/gauges.dart';
 
@@ -16,80 +17,131 @@ class TemperatureGauge extends StatefulWidget {
 class _TemperatureGaugeState extends State<TemperatureGauge> {
   @override
   Widget build(BuildContext context) {
-    // Calculate dynamic sizes using MediaQuery
-    final double screenHeight = MediaQuery.of(context).size.height;
     final double screenWidth = MediaQuery.of(context).size.width;
+    
+    // Constrain gauge size so it looks great on both small mobiles and wide desktops
+    final double gaugeSize = (screenWidth * 0.40).clamp(130.0, 180.0);
+    final double tempValue = widget.temperature ?? 0.0;
 
-    final double gaugeSize = screenWidth * 0.43; // Gauge size relative to width
-    final double fontSizeTitle = screenWidth * 0.03; // Title font size
-    final double fontSizeAnnotation =
-        screenWidth * 0.03; // Annotation font size
+    // Get color based on temperature range
+    Color getTemperatureColor(double temp) {
+      if (temp <= 15) return const Color(0xFF64B5F6); // Cold blue
+      if (temp <= 25) return const Color(0xFF81C784); // Comfort green
+      if (temp <= 35) return const Color(0xFFFFB74D); // Warm orange
+      return const Color(0xFFE57373); // Hot red
+    }
+
+    final Color primaryColor = getTemperatureColor(tempValue);
 
     return Center(
       child: Container(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
         height: gaugeSize,
         width: gaugeSize,
         child: SfRadialGauge(
-          title: GaugeTitle(
-            text: "Temperature",
-            textStyle: TextStyle(
-              fontSize: fontSizeTitle,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
           axes: <RadialAxis>[
             RadialAxis(
               minimum: 0,
               maximum: 50,
-              ranges: <GaugeRange>[
-                GaugeRange(
-                  startValue: 0,
-                  endValue: 10,
-                  color: Colors.blue,
-                ),
-                GaugeRange(
-                  startValue: 10,
-                  endValue: 20,
-                  color: Colors.green,
-                ),
-                GaugeRange(
-                  startValue: 20,
-                  endValue: 30,
-                  color: Colors.orange,
-                ),
-                GaugeRange(
-                  startValue: 30,
-                  endValue: 40,
-                  color: Colors.red,
-                ),
-                GaugeRange(
-                  startValue: 40,
-                  endValue: 50,
-                  color: Colors.purple,
-                ),
-              ],
+              showLabels: true,
+              showTicks: true,
+              startAngle: 140,
+              endAngle: 40,
+              radiusFactor: 0.95,
+              axisLineStyle: const AxisLineStyle(
+                thickness: 0.08,
+                thicknessUnit: GaugeSizeUnit.factor,
+                cornerStyle: CornerStyle.bothCurve,
+                color: Color(0x15FFFFFF),
+              ),
+              majorTickStyle: const MajorTickStyle(
+                length: 0.08,
+                lengthUnit: GaugeSizeUnit.factor,
+                thickness: 1.5,
+                color: Colors.white24,
+              ),
+              minorTickStyle: const MinorTickStyle(
+                length: 0.04,
+                lengthUnit: GaugeSizeUnit.factor,
+                thickness: 1.0,
+                color: Colors.white10,
+              ),
+              labelStyle: const GaugeLabelStyle(
+                color: Colors.white54,
+                fontSize: 8.5,
+                fontWeight: FontWeight.w400,
+              ),
               pointers: <GaugePointer>[
+                // Range progress indicator
+                RangePointer(
+                  value: tempValue,
+                  width: 0.08,
+                  sizeUnit: GaugeSizeUnit.factor,
+                  cornerStyle: CornerStyle.bothCurve,
+                  gradient: SweepGradient(
+                    colors: <Color>[
+                      const Color(0xFF2196F3),
+                      primaryColor,
+                    ],
+                  ),
+                ),
+                // Glowing needle
                 NeedlePointer(
-                  value: widget.temperature ?? 0,
+                  value: tempValue,
                   enableAnimation: true,
-                  animationDuration: 1000,
-                  needleLength: fontSizeAnnotation * 0.03,
+                  animationDuration: 1200,
+                  needleLength: 0.8,
+                  needleWidth: 3.5,
+                  needleColor: primaryColor,
+                  knobStyle: KnobStyle(
+                    knobRadius: 0.07,
+                    sizeUnit: GaugeSizeUnit.factor,
+                    color: primaryColor,
+                    borderColor: Colors.white24,
+                    borderWidth: 1,
+                  ),
+                  tailStyle: TailStyle(
+                    length: 0.15,
+                    width: 3.5,
+                    color: primaryColor.withOpacity(0.5),
+                  ),
                 ),
               ],
               annotations: <GaugeAnnotation>[
                 GaugeAnnotation(
-                  widget: Text(
-                    widget.temperature != null
-                        ? "${widget.temperature!.toStringAsFixed(1)} °C"
-                        : "Loading...",
-                    style: TextStyle(
-                      fontSize: fontSizeAnnotation,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  widget: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 18),
+                      Text(
+                        "${tempValue.toStringAsFixed(1)}°C",
+                        style: TextStyle(
+                          fontSize: (gaugeSize * 0.12).clamp(15.0, 22.0),
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                          shadows: [
+                            Shadow(
+                              color: primaryColor.withOpacity(0.6),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "INDOOR TEMP",
+                        style: TextStyle(
+                          fontSize: (gaugeSize * 0.05).clamp(7.0, 9.0),
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white38,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
                   ),
                   angle: 90,
-                  positionFactor: 0.7,
+                  positionFactor: 0.6,
                 ),
               ],
             ),
@@ -99,6 +151,7 @@ class _TemperatureGaugeState extends State<TemperatureGauge> {
     );
   }
 }
+
 
 
 

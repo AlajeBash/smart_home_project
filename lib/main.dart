@@ -1,11 +1,47 @@
 import 'package:smart_home_front_end/exports.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(Homepage());
+  runApp(const AuraSmartHomeApp());
+}
+
+class AuraSmartHomeApp extends StatelessWidget {
+  const AuraSmartHomeApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'AURA Smart Home',
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        primaryColor: const Color(0xFF8E99F3),
+        scaffoldBackgroundColor: const Color(0xFF090A0F),
+      ),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8E99F3)),
+                ),
+              ),
+            );
+          }
+          if (snapshot.hasData) {
+            return const Homepage();
+          }
+          return const LoginScreen();
+        },
+      ),
+    );
+  }
 }
 
 // import 'package:smart_home_front_end/exports.dart';

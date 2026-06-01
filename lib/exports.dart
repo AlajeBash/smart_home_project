@@ -5,9 +5,12 @@ export 'package:smart_home_front_end/Responsive/mobile_body.dart';
 export 'package:smart_home_front_end/Responsive/desktop_body.dart';
 export 'package:smart_home_front_end/Responsive/tablet_body.dart';
 export 'package:smart_home_front_end/Responsive/reponsive_layout.dart';
+export 'package:smart_home_front_end/Responsive/login_screen.dart';
 export 'package:smart_home_front_end/homepage.dart';
 export 'package:smart_home_front_end/Network/network.dart';
 
+export 'package:smart_home_front_end/Widgets/trends_chart.dart';
+export 'package:smart_home_front_end/Widgets/glass_container.dart';
 export 'package:firebase_database/firebase_database.dart';
 export 'package:flutter/material.dart';
 export 'package:firebase_core/firebase_core.dart';
