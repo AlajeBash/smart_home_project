@@ -284,6 +284,18 @@ class NetworkService {
     }
   }
 
+  /// Updates a device's room location
+  Future<void> updateDeviceRoom(String id, String newRoom) async {
+    final index = _cachedDevices.indexWhere((d) => d["id"] == id);
+    if (index != -1) {
+      _cachedDevices[index]["room"] = newRoom;
+      _devicesController.add(List.from(_cachedDevices));
+    }
+    if (!_isLocalMode) {
+      await _databaseRef.child("home/devices/$id/room").set(newRoom);
+    }
+  }
+
   /// Removes a custom device dynamically
   Future<void> deleteDevice(String id) async {
     if (_isLocalMode) {
