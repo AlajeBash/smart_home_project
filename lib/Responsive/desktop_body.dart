@@ -1236,7 +1236,7 @@ class _DesktopBodyState extends State<DesktopBody> {
                           left: 14,
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            color: Colors.black50,
+                            color: Colors.black54,
                             child: Text(
                               DateTime.now().toIso8601String().substring(0, 19).replaceAll('T', ' '),
                               style: const TextStyle(fontSize: 9, color: Colors.white70, fontFamily: 'monospace'),

@@ -978,7 +978,7 @@ class _TabletBodyState extends State<TabletBody> {
                           left: 12,
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                            color: Colors.black50,
+                            color: Colors.black54,
                             child: Text(
                               DateTime.now().toIso8601String().substring(0, 19).replaceAll('T', ' '),
                               style: const TextStyle(fontSize: 8, color: Colors.white70, fontFamily: 'monospace'),

@@ -599,7 +599,7 @@ class _MobileBodyState extends State<MobileBody> {
                       PopupMenuButton<String>(
                         icon: const Icon(Icons.drive_file_move_rounded, color: Color(0xFF8E99F3), size: 18),
                         tooltip: "Relocate Device",
-                        dropdownColor: const Color(0xFF101323),
+                        color: const Color(0xFF101323),
                         onSelected: (String targetRoom) {
                           _networkService.updateDeviceRoom(id, targetRoom);
                           _logEvent("Relocated device '$name' to room '$targetRoom'");
