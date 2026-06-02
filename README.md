@@ -1,144 +1,172 @@
-# Smart Home Project (ESP32 • Firebase • Web App)
+# Aura Smart Home (AURA IoT)
+### Symmetrical Multi-Platform Web Panel • ESP32 Smart Firmware • Realtime Failover Engine
 
-Live demos
-- https://bash-smart-home-esp32.web.app/
-- https://bash-smart-home-esp32.firebaseapp.com/
+[![Firebase Deployment](https://github.com/AlajeBash/smart_home_project/actions/workflows/firebase-hosting-pull-request.yml/badge.svg)](https://github.com/AlajeBash/smart_home_project/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-Table of contents
-- Overview
-- Key features
-- Architecture
-- Hardware & firmware
-- Web application
-- Firebase setup
-- Security best practices
-- Development — run locally
-- Deployment
-- Project layout
-- Troubleshooting
-- Contributing
-- License & contact
+Aura Smart Home is a premium, enterprise-grade, high-fidelity IoT dashboard and micro-controller suite. It features **symmetrical glassmorphic UX** across Mobile, Tablet, and Desktop form factors, an **offline direct-subnet auto-discovery failover engine**, and **dynamic hardware pin registration** directly from the cloud.
 
-Overview
-This repository implements a complete end-to-end smart home prototype using ESP32 microcontrollers for edge devices, Firebase for cloud back-end services, and a web-based control panel hosted on Firebase Hosting. The project demonstrates how to collect sensor telemetry, synchronize device state in real time, and provide remote control via a responsive web UI.
+#### 🌐 Deployed Live Demography
+* **Primary Live Web Panel**: [https://bash-smart-home-esp32.web.app/](https://bash-smart-home-esp32.web.app/)
+* **Secondary Mirror**: [https://bash-smart-home-esp32.firebaseapp.com/](https://bash-smart-home-esp32.firebaseapp.com/)
 
-Key features
-- ESP32 firmware for Wi‑Fi connectivity, sensor reading, and actuator control
-- Real‑time state synchronization using Firebase Realtime Database or Firestore
-- Web control panel hosted on Firebase Hosting with live telemetry and device controls
-- User access managed via Firebase Authentication
-- Modular design: separate firmware and web application code so each can be extended independently
+---
 
-Architecture
-1. ESP32 devices
-   - Connect to local Wi‑Fi and Firebase
-   - Publish telemetry (temperature, humidity, motion, light, etc.)
-   - Subscribe to control topics/paths in Firebase to receive actuator commands (relays, LEDs, dimmers)
-2. Firebase (backend)
-   - Stores device state, telemetry, and user settings
-   - Authentication provides user identity
-   - Hosting serves the web UI
-3. Web application
-   - Connects to Firebase to display the current state and send commands
-   - Provides dashboards, device lists, and historical data visualization (if enabled)
+## 🗺️ Complete Enterprise Architecture
 
-Supported hardware
-- ESP32 family (ESP32 DevKitC and similar)
-- Common sensors: DHT22/BME280 (temperature/humidity), PIR (motion), LDR (light)
-- Actuators: relays, MOSFET drivers, PWM dimmers
+The architecture represents a robust, highly resilient, triple-layer modern IoT topology:
 
-Firmware
-- The firmware component handles:
-  - Wi‑Fi setup and reconnection logic
-  - Firebase connectivity (REST or native client libraries)
-  - Sensor sampling and debouncing
-  - Command handling for actuators
-  - OTA update hooks (optional — recommended for production)
-- Typical files: firmware/ or esp32/ containing Arduino or PlatformIO projects
-- Configuration: edit the sketch/config to add Wi‑Fi SSID, password, and Firebase settings (apiKey, projectId, databaseURL)
+```mermaid
+flowchart TD
+    subgraph Frontend [Flutter Multi-Platform UI]
+        A[AuraSmartHomeApp] --> B{Firebase Auth State?}
+        B -- Logged In --> C[Homepage Responsive Dashboard]
+        B -- Not Logged In --> D[Glassmorphic LoginScreen]
+        C --> E[NetworkService Layer]
+    end
 
-Web application
-- Built with standard web technologies (HTML/CSS/JS) — may use a framework (React, Vue, or plain JS)
-- Connects to Firebase for authentication and real‑time updates
-- UI features:
-  - Device list and status
-  - Per‑device control panel (switches, sliders)
-  - Live telemetry charts (optional)
-  - User session management
+    subgraph Cloud [Firebase Enterprise Cloud]
+        F[Firebase Auth Node]
+        G[Firebase RTDB Stream]
+        H[database.rules.json Write Locks]
+    end
 
-Firebase setup (high level)
-1. Create a Firebase project at https://console.firebase.google.com/
-2. Enable Realtime Database or Firestore depending on your preference
-3. Configure database rules to limit access to authenticated users
-4. Enable Firebase Authentication (email/password, Google, etc.)
-5. Add web app credentials to the web app configuration
-6. Optionally enable Hosting and deploy the web UI to the provided hosting domain (the live demos above show a deployed instance)
+    subgraph Local [Local Home Subnet]
+        I[ESP32 Hardware Hub]
+        J[Preferences.h Flash Cache]
+        K[DNSServer Captive AP]
+        L[Local REST API Server]
+        M[Custom Node.js Server Broker]
+    end
 
-Security best practices
-- Never commit API keys, service-account JSON files, or private credentials to source control.
-- Use Firebase security rules to enforce per‑user access and validate incoming data shapes.
-- Use Firebase Authentication to identify users and tie device ownership/permissions to user accounts.
-- If you need server‑side privileged access, use a minimal backend or Cloud Functions with service account credentials stored securely.
-- Consider using TLS and strong Wi‑Fi network protections for device communication.
+    D <-->|Email/Pass Authenticate| F
+    E <-->|Auto-Failover Remote Sync| G
+    C <-->|Secure Session Tokens| F
+    E <-->|mDNS Probe: aura-hub.local| L
+    I <-->|Sensor Stream & Relay Sync| G
+    M <-->|Telemetry REST & WebSockets| C
+```
 
-Development — run locally
-Prerequisites
-- Node.js + npm (for web app)
-- Arduino IDE or PlatformIO (for ESP32 firmware)
-- Firebase CLI (optional, for deploying hosting)
+---
 
-Common steps
-1. Clone repository:
-   git clone https://github.com/AlajeBash/smart_home_project.git
-   cd smart_home_project
-2. Firmware:
-   - Open firmware/ (or esp32/) in Arduino IDE or PlatformIO
-   - Configure Wi‑Fi and Firebase settings in the sketch
-   - Build and flash to your ESP32
-3. Web app (example):
-   cd web-app
-   npm install
-   Create a file or environment variables for Firebase config (apiKey, authDomain, projectId, databaseURL)
-   npm start
-4. Monitor device logs over serial and verify the device appears in the web UI
+## ⚡ Key Feature Suites
 
-Deployment
-- Web UI: build and deploy to Firebase Hosting
-  npm run build
-  firebase deploy --only hosting
-- Firmware: flash ESP32 using Arduino IDE, PlatformIO, or esptool; implement OTA if desired
+### 1. Offline Direct-Subnet Auto-Discovery (`mDNS` & Failover)
+* **Local mDNS Responder**: The ESP32 hosts a multicast DNS server at `http://aura-hub.local` on Port `80`.
+* **Zero-Latency Failover (`NetworkService`)**: The Flutter web app continuously pings `aura-hub.local`. 
+  * If reachable, communication is hot-swapped to fast local HTTP REST endpoints (`/api/sensors` and `/api/device`), fully bypassing internet roundtrips.
+  * If unreachable, it seamlessly reconnects to the Firebase Realtime Database stream without interrupting UI operations.
 
-Repository layout (common)
-- firmware/ or esp32/     — ESP32 firmware source code
-- web-app/ or ui/         — Web application source code
-- docs/                   — Architecture diagrams, wiring diagrams, and notes
-- README.md               — This file
+### 2. Captive Portal Hotspot Provisioning
+* **Secure Flash Storage (`Preferences.h`)**: SSID, Wi-Fi passwords, Firebase DB URLs, and API tokens are dynamically stored in secure non-volatile storage (NVS) blocks.
+* **Captive Hotspot Portal**: If connection configurations are missing or connection attempts time out (20 seconds), the ESP32 launches an open Access Point named **`AURA-SmartHub-Setup`**. 
+* **Commissioning Dashboard**: Connect to `http://192.168.4.1` to access a high-fidelity glassmorphic commissioning webpage to scan local networks, insert credentials, and trigger a self-healing reboot.
 
-Troubleshooting
-- Device won't connect to Wi‑Fi: verify SSID/password and check serial logs for IP assignment
-- Firebase auth errors: confirm web app and firmware use correct project credentials and database URL
-- Realtime updates not appearing: check database rules, security settings, and that your SDK connections are initialized correctly
-- CORS or hosting issues: ensure Firebase hosting configuration and your web app origin match
+### 3. Symmetrical Multi-Viewport Glassmorphic UI
+* **High-Fidelity Aesthetics**: Neon glow systems, real-time backdrop-filters, custom color palettes, and fluid hover animations.
+* **Layout Symmetries**:
+  * **Mobile View (`mobile_body.dart`)**: Slide-out glassmorphic drawer menu, linear status filter widgets, and double-filtered device lists.
+  * **Tablet View (`tablet_body.dart`)**: Compact vertical navigation rail with neon active state indicator pips, multi-row analytics summary dashboard.
+  * **Desktop View (`desktop_body.dart`)**: 3-column layout featuring Sidebar Navigation, Center dashboard view, and Diagnostic logging streams that dynamically collapse to accommodate intensive interfaces.
 
-Contributing
-Contributions are welcome. Suggested workflow:
-1. Open an issue to discuss the change
-2. Create a feature branch (git checkout -b feature/your-change)
-3. Make changes and include tests or documentation if applicable
-4. Push and open a pull request with a clear description of changes
+### 4. Dynamic Device & Hardware Pin Decoupling
+* **Dynamic Database Provisioning**: Appliances are dynamically loaded from `/home/devices/`. New devices are provisioned, toggled, or deleted at runtime with zero code modification.
+* **GPIO Selector**: When registering an appliance, select between wireless connectivity or a **Wired Pin**, mapping it directly to physical microcontroller GPIO ports (e.g., GPIO 2, 12, 13, 15, etc.).
+* **Self-Healing Driver Mode**: The ESP32 parses newly added database devices, automatically runs `pinMode(port, OUTPUT)` at runtime, and drives relay signals high or low instantly on command.
 
-License
-Include a LICENSE file in the repository to clarify terms. If you prefer MIT, Apache 2.0, or another license, add the file and a short note here.
+### 5. Multi-Tab Interactive Modules
+* **Dashboard & Status Filters**: Filter home nodes dynamically using horizontal filter chips (All, Online, Offline, Faulty) accompanied by visual green, grey, or red inline pulsing status badges.
+* **Rooms Hub & Appliances Relocation**: Drag-and-drop or select to swap appliance room locations. Add or delete custom rooms instantly, updating configuration templates globally.
+* **Automations Builder Console**: Instant scene templates ("Cinema Mode", "All Lights Off", "Energy Save") alongside custom rules construction (e.g. `If temperature is > 30°C, then turn on Air Conditioner`).
+* **Security Control Deck**: Virtual numeric keypad verifying custom sequence codes (`1234`) to switch state between **ARMED** and **DISARMED**. Integrates live visual streams with custom static scanline noise and distortion shaders.
+* **Analytics Climate Trends**: Renders temperature and humidity historical datasets using a clean pure-canvas Custom Painter (`CustomPainter`), linked to a real-time system event log terminal.
 
-Contact / Maintainer
-Maintainer: AlajeBash
-Repository: https://github.com/AlajeBash/smart_home_project
+---
 
-Acknowledgements
-- Firebase — Realtime DB, Firestore, Authentication, Hosting
-- ESP32 community libraries and examples
-- Open source projects and tutorials that inspired this work
+## 📂 Repository Layout
 
-Live demos available at:
-  - https://bash-smart-home-esp32.web.app/
-  - https://bash-smart-home-esp32.firebaseapp.com/
+```bash
+├── backend/                             # Custom Telemetry Broker
+│   ├── database.rules.json              # Firebase JWT Database Write-Locks
+│   ├── server.js                        # Node.js + Socket.io Server
+│   └── package.json
+│
+├── firmware/                            # ESP32 Smart Firmware Suite
+│   └── esp32/
+│       └── Smart_Home.cpp               # Captive AP, mDNS, NVS & Failover
+│
+└── frontend/                            # Flutter Responsive Web App
+    ├── lib/
+    │   ├── main.dart                    # Auth State Stream Listener
+    │   ├── homepage.dart                # Main Symmetrical Layout Router
+    │   ├── Network/
+    │   │   └── network.dart             # Failover REST Client & Sync Engine
+    │   └── Responsive/
+    │       ├── mobile_body.dart         # Mobile UI viewport
+    │       ├── tablet_body.dart         # Tablet UI viewport
+    │       └── desktop_body.dart        # Desktop UI viewport
+    ├── firebase.json                    # Single Page App URL Redirect Rules
+    └── pubspec.yaml
+```
+
+---
+
+## 🛠️ Step-by-Step Commissioning & Setup
+
+### 1. Firebase Backend Provisioning
+1. Create a project at [Firebase Console](https://console.firebase.google.com/).
+2. Enable **Realtime Database** and **Firebase Authentication** (Email/Password provider).
+3. Import security write-locks into your Realtime Database rules using [backend/database.rules.json](file:///home/alajebash/Desktop/Aminai%20Technologies/Iot/Smart%20Home/backend/database.rules.json):
+   ```json
+   {
+     "rules": {
+       ".read": "auth != null",
+       ".write": "auth != null"
+     }
+   }
+   ```
+
+### 2. Flashing the Microcontroller
+1. Connect your ESP32 board to your development environment.
+2. Open [firmware/esp32/Smart_Home.cpp](file:///home/alajebash/Desktop/Aminai%20Technologies/Iot/Smart%20Home/firmware/esp32/Smart_Home.cpp) in PlatformIO or Arduino IDE.
+3. Install required libraries:
+   * `ESP32 REST Client / WebServer`
+   * `ESPmDNS`
+   * `Preferences` (NVS)
+   * `ArduinoJson` (JSON streams parser)
+4. Upload the code to your ESP32.
+5. Search for the Wi-Fi network **`AURA-SmartHub-Setup`** on your smartphone.
+6. Input your home Wi-Fi SSID, password, Firebase Host url (`https://<project-id>.firebaseio.com`), and Web API Key, then click **Commission & Reboot**.
+
+### 3. Local Broker Execution (Optional)
+If running a secondary local server broker for telemetry sockets:
+```bash
+cd backend
+npm install
+node server.js
+```
+
+### 4. Running the Flutter Frontend Locally
+Ensure your local machine has the Flutter SDK configured:
+```bash
+cd frontend
+flutter pub get
+flutter run -d chrome
+```
+*Alternatively, click **Bypass Authentication (Demo Mode)** on the premium login screen to interactively preview all UI views, chart animations, security panels, and room filters with high-fidelity simulated telemetry datasets.*
+
+---
+
+## 🚀 Continuous Integration & Deployment (CI/CD)
+
+The project utilizes automated GitHub Actions pipelines:
+* **Workflow**: Every push or merge directly to the `main` branch triggers the deployment pipeline.
+* **Process**: Installs Java JDK 17, pulls the stable Flutter SDK, builds the production web distribution bundle (`flutter build web --release`), and deploys the resulting static assets directly to **Firebase Web Hosting** using a secure Github repository secret service-account key (`FIREBASE_SERVICE_ACCOUNT_BASH_SMART_HOME_ESP32`).
+
+---
+
+## 📝 License & Contacts
+Distributed under the MIT License. See `LICENSE` for details.
+
+* **Maintainer**: AlajeBash
+* **Repository**: [https://github.com/AlajeBash/smart_home_project](https://github.com/AlajeBash/smart_home_project)
