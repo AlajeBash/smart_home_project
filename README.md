@@ -2,7 +2,7 @@
 ### Symmetrical Multi-Platform Web Panel • ESP32 Smart Firmware • Realtime Failover Engine
 
 [![Firebase Deployment](https://github.com/AlajeBash/smart_home_project/actions/workflows/firebase-hosting-pull-request.yml/badge.svg)](https://github.com/AlajeBash/smart_home_project/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 
 Aura Smart Home is a premium, enterprise-grade, high-fidelity IoT dashboard and micro-controller suite. It features **symmetrical glassmorphic UX** across Mobile, Tablet, and Desktop form factors, an **offline direct-subnet auto-discovery failover engine**, and **dynamic hardware pin registration** directly from the cloud.
 
@@ -166,7 +166,7 @@ The project utilizes automated GitHub Actions pipelines:
 ---
 
 ## 📝 License & Contacts
-Distributed under the MIT License. See `LICENSE` for details.
+This software is commercial and proprietary. Distributed under the Aminai Technologies Proprietary Software License. See [LICENSE](LICENSE) for the full commercial terms and restrictions.
 
 * **Maintainer**: AlajeBash
 * **Repository**: [https://github.com/AlajeBash/smart_home_project](https://github.com/AlajeBash/smart_home_project)

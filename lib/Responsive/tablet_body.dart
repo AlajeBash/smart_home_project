@@ -177,6 +177,8 @@ class _TabletBodyState extends State<TabletBody> {
         return _buildDashboardView(curTemp, curHum);
       case "Rooms":
         return _buildRoomsView();
+      case "Devices":
+        return _buildDevicesTabView();
       case "Automations":
         return _buildAutomationsView();
       case "Security Panel":
@@ -192,6 +194,19 @@ class _TabletBodyState extends State<TabletBody> {
 
   // ==================== DASHBOARD VIEW (TABLET EXCLUSIVE) ====================
   Widget _buildDashboardView(double curTemp, double curHum) {
+    double displayTemp = curTemp;
+    double displayHum = curHum;
+    List<double> displayTempHistory = tempHistory;
+    List<double> displayHumHistory = humHistory;
+    if (activeRoom != "All Rooms") {
+      final double offsetTemp = (activeRoom.length % 3 - 1) * 1.2;
+      final double offsetHum = (activeRoom.length % 5 - 2) * 3.0;
+      displayTemp = curTemp + offsetTemp;
+      displayHum = curHum + offsetHum;
+      displayTempHistory = tempHistory.map((t) => double.parse((t + offsetTemp).toStringAsFixed(1))).toList();
+      displayHumHistory = humHistory.map((h) => double.parse((h + offsetHum).toStringAsFixed(1))).toList();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -202,9 +217,28 @@ class _TabletBodyState extends State<TabletBody> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "Bash Smart Hub",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5),
+                Row(
+                  children: [
+                    Text(
+                      activeRoom == "All Rooms" ? "Bash Smart Hub" : "$activeRoom View",
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5),
+                    ),
+                    if (activeRoom != "All Rooms") ...[
+                      const SizedBox(width: 12),
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            activeRoom = "All Rooms";
+                          });
+                        },
+                        icon: const Icon(Icons.clear_rounded, size: 14, color: Color(0xFF8E99F3)),
+                        label: const Text(
+                          "Show All",
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF8E99F3)),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -242,7 +276,7 @@ class _TabletBodyState extends State<TabletBody> {
                             children: [
                               const Text("Temp Node", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white70)),
                               const SizedBox(height: 10),
-                              TemperatureGauge(temperature: curTemp),
+                              TemperatureGauge(temperature: displayTemp),
                             ],
                           ),
                         ),
@@ -255,7 +289,7 @@ class _TabletBodyState extends State<TabletBody> {
                             children: [
                               const Text("Humidity Node", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white70)),
                               const SizedBox(height: 10),
-                              HumidityGauge(humidity: curHum),
+                              HumidityGauge(humidity: displayHum),
                             ],
                           ),
                         ),
@@ -401,9 +435,9 @@ class _TabletBodyState extends State<TabletBody> {
                   GlassContainer(
                     height: 180,
                     child: ClimateTrendsChart(
-                      dataPoints: tempHistory,
+                      dataPoints: displayTempHistory,
                       lineColor: const Color(0xFFE57373),
-                      label: "TEMPERATURE HISTORY (24H)",
+                      label: activeRoom == "All Rooms" ? "TEMPERATURE HISTORY (24H)" : "${activeRoom.toUpperCase()} TEMPERATURE HISTORY (24H)",
                       suffix: "°C",
                     ),
                   ),
@@ -454,7 +488,406 @@ class _TabletBodyState extends State<TabletBody> {
     );
   }
 
-  // ==================== ROOMS VIEW (TABLET EXCLUSIVE) ====================
+  // ==================== DEVICES VIEW ====================
+  Widget _buildMetricTile(String label, String value, Color color) {
+    return GlassContainer(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      glowColor: color.withOpacity(0.3),
+      borderRadius: 12,
+      bgOpacity: 0.05,
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white.withOpacity(0.35), letterSpacing: 0.5),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDevicesTabView() {
+    final onlineCount = dynamicDevices.where((d) => (d["status"] ?? "online") == "online").length + 1; // including AC
+    final offlineCount = dynamicDevices.where((d) => (d["status"] ?? "online") == "offline").length;
+    final faultyCount = dynamicDevices.where((d) => (d["status"] ?? "online") == "faulty").length;
+    final totalCount = onlineCount + offlineCount + faultyCount;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Devices Hub",
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  "View, relocate, and manage registered hardware nodes",
+                  style: TextStyle(fontSize: 11, color: Colors.white38),
+                ),
+              ],
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF8E99F3), size: 24),
+              onPressed: _showAddDeviceDialog,
+              tooltip: "Register New Hardware Device",
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+
+        Row(
+          children: [
+            Expanded(
+              child: _buildMetricTile("TOTAL", totalCount.toString(), const Color(0xFF8E99F3)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildMetricTile("ONLINE", onlineCount.toString(), const Color(0xFF81C784)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildMetricTile("OFFLINE", offlineCount.toString(), const Color(0xFF90A4AE)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildMetricTile("FAULTY", faultyCount.toString(), const Color(0xFFE57373)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        const Text(
+          "REGISTERED HARDWARE NODES",
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white30, letterSpacing: 1.0),
+        ),
+        const SizedBox(height: 12),
+
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: dynamicDevices.length + 1,
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return _buildDevicesTabCard(
+                id: "device_ac",
+                name: "Climate AC unit",
+                room: "Bedroom",
+                isWired: false,
+                port: null,
+                state: acState,
+                icon: "ac_unit",
+                glowColor: "blue",
+                status: "online",
+                isAC: true,
+              );
+            }
+            final device = dynamicDevices[index - 1];
+            return _buildDevicesTabCard(
+              id: device["id"],
+              name: device["name"] ?? "",
+              room: device["room"] ?? "",
+              isWired: device["isWired"] ?? false,
+              port: device["port"],
+              state: device["state"] ?? false,
+              icon: device["icon"] ?? "lightbulb",
+              glowColor: device["glowColor"] ?? "amber",
+              status: device["status"] ?? "online",
+              isAC: false,
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDevicesTabCard({
+    required String id,
+    required String name,
+    required String room,
+    required bool isWired,
+    required int? port,
+    required bool state,
+    required String icon,
+    required String glowColor,
+    required String status,
+    required bool isAC,
+  }) {
+    IconData deviceIcon;
+    switch (icon) {
+      case 'toys':
+      case 'fan':
+        deviceIcon = Icons.toys_rounded;
+        break;
+      case 'air':
+        deviceIcon = Icons.air_rounded;
+        break;
+      case 'videocam':
+        deviceIcon = Icons.videocam_rounded;
+        break;
+      case 'outlet':
+      case 'power':
+        deviceIcon = Icons.power_rounded;
+        break;
+      case 'ac_unit':
+        deviceIcon = Icons.ac_unit_rounded;
+        break;
+      default:
+        deviceIcon = Icons.lightbulb_outline_rounded;
+    }
+
+    Color color;
+    switch (glowColor) {
+      case 'teal':
+        color = Colors.tealAccent;
+        break;
+      case 'blue':
+        color = Colors.blueAccent;
+        break;
+      case 'purple':
+        color = Colors.purpleAccent;
+        break;
+      case 'orange':
+        color = Colors.orangeAccent;
+        break;
+      default:
+        color = Colors.amber;
+    }
+
+    Color statusColor;
+    String statusText;
+    switch (status) {
+      case 'offline':
+        statusColor = Colors.grey.shade500;
+        statusText = "OFFLINE";
+        break;
+      case 'faulty':
+        statusColor = const Color(0xFFE57373);
+        statusText = "FAULTY";
+        break;
+      default:
+        statusColor = const Color(0xFF81C784);
+        statusText = "ONLINE";
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: GlassContainer(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        borderRadius: 16,
+        glowColor: state ? color : Colors.transparent,
+        bgOpacity: 0.05,
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: state ? color.withOpacity(0.12) : Colors.white.withOpacity(0.04),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: state ? color.withOpacity(0.25) : Colors.white.withOpacity(0.08),
+                  width: 1,
+                ),
+              ),
+              child: Icon(deviceIcon, color: state ? color : Colors.white60, size: 20),
+            ),
+            const SizedBox(width: 14),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          name,
+                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        statusText,
+                        style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: statusColor, letterSpacing: 0.5),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        "Room: $room",
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.5)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "•",
+                        style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.25)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        isWired ? "Wired GPIO $port" : "Wireless ESP-NOW",
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.4)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.drive_file_move_rounded, color: Colors.white.withOpacity(0.4), size: 18),
+                  tooltip: "Move device to another room",
+                  onSelected: (String newRoom) async {
+                    if (isAC) {
+                      _logEvent("Relocated mock Climate AC unit to $newRoom");
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Relocated Climate AC unit to $newRoom")),
+                      );
+                    } else {
+                      await _networkService.updateDeviceRoom(id, newRoom);
+                      _logEvent("Relocated device '$name' to $newRoom");
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Relocated '$name' to $newRoom")),
+                      );
+                    }
+                  },
+                  itemBuilder: (BuildContext context) {
+                    return userRooms.map((String rm) {
+                      return PopupMenuItem<String>(
+                        value: rm,
+                        child: Text(
+                          rm,
+                          style: const TextStyle(fontSize: 12, color: Colors.black85),
+                        ),
+                      );
+                    }).toList();
+                  },
+                ),
+
+                Transform.scale(
+                  scale: 0.75,
+                  child: Switch(
+                    value: state,
+                    activeColor: const Color(0xFF8E99F3),
+                    activeTrackColor: const Color(0xFF8E99F3).withOpacity(0.35),
+                    inactiveThumbColor: Colors.white54,
+                    inactiveTrackColor: Colors.white10,
+                    onChanged: (bool value) {
+                      if (isAC) {
+                        setState(() {
+                          acState = value;
+                        });
+                        _logEvent("Turned ${value ? 'ON' : 'OFF'} mock Climate AC unit");
+                      } else {
+                        _networkService.toggleDeviceState(id, value);
+                        _logEvent("Toggled state for $name to ${value ? 'ON' : 'OFF'}");
+                      }
+                    },
+                  ),
+                ),
+
+                if (!isAC)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFE57373), size: 18),
+                    tooltip: "Remove from system",
+                    onPressed: () => _confirmDeleteDevice(id, name),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteDevice(String id, String name) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.transparent,
+          contentPadding: EdgeInsets.zero,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          content: GlassContainer(
+            borderRadius: 20,
+            padding: const EdgeInsets.all(24),
+            bgOpacity: 0.08,
+            borderOpacity: 0.15,
+            glowColor: const Color(0xFFE57373),
+            glowBlurRadius: 18.0,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "CONFIRM DELETION",
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 2),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  "Are you sure you want to permanently remove '$name' from the smart home network? This will detach its hardware binding.",
+                  style: const TextStyle(fontSize: 11, color: Colors.white70, height: 1.4),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("CANCEL", style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE57373).withOpacity(0.2),
+                        side: const BorderSide(color: Color(0xFFE57373)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        await _networkService.deleteDevice(id);
+                        _logEvent("Deleted device '$name' successfully.");
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text("Successfully removed '$name' from system."),
+                            backgroundColor: Colors.red.shade900,
+                          ),
+                        );
+                      },
+                      child: const Text("DELETE DEVICE", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ==================== ROOMS VIEW ====================
   Widget _buildRoomsView() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2233,6 +2666,7 @@ class _TabletBodyState extends State<TabletBody> {
                   // Icons only Navigation Rail
                   _buildCompactRailItem(Icons.dashboard_rounded, "Dashboard", active: selectedSection == "Dashboard"),
                   _buildCompactRailItem(Icons.meeting_room_rounded, "Rooms", active: selectedSection == "Rooms"),
+                  _buildCompactRailItem(Icons.devices_other_rounded, "Devices", active: selectedSection == "Devices"),
                   _buildCompactRailItem(Icons.offline_bolt_rounded, "Automations", active: selectedSection == "Automations"),
                   _buildCompactRailItem(Icons.security_rounded, "Security Panel", active: selectedSection == "Security Panel"),
                   _buildCompactRailItem(Icons.bar_chart_rounded, "Analytics", active: selectedSection == "Analytics"),
