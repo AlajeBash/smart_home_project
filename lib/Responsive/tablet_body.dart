@@ -26,6 +26,9 @@ class _TabletBodyState extends State<TabletBody> {
   // Active room filter
   String activeRoom = "All Rooms";
 
+  // Active status filter
+  String activeStatusFilter = "All";
+
   // Dynamic registered devices list
   List<Map<String, dynamic>> dynamicDevices = [];
   StreamSubscription? _devicesSub;
@@ -276,6 +279,8 @@ class _TabletBodyState extends State<TabletBody> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  _buildStatusFilters(),
                   const SizedBox(height: 12),
                   GridView.builder(
                     shrinkWrap: true,
@@ -286,28 +291,53 @@ class _TabletBodyState extends State<TabletBody> {
                       mainAxisSpacing: 12,
                       childAspectRatio: 2.1,
                     ),
-                    itemCount: (activeRoom == "All Rooms" || activeRoom == "Bedroom" ? 1 : 0) +
-                        dynamicDevices.where((d) => activeRoom == "All Rooms" || d["room"] == activeRoom).length,
-                    itemBuilder: (context, index) {
-                      final filteredDevices = activeRoom == "All Rooms"
+                    itemCount: (() {
+                      final roomFiltered = activeRoom == "All Rooms"
                           ? dynamicDevices
                           : dynamicDevices.where((d) => d["room"] == activeRoom).toList();
+                      final statusFiltered = roomFiltered.where((d) {
+                        final status = d["status"] ?? "online";
+                        if (activeStatusFilter == "All") return true;
+                        if (activeStatusFilter == "Online") return status == "online";
+                        if (activeStatusFilter == "Offline") return status == "offline";
+                        if (activeStatusFilter == "Faulty") return status == "faulty";
+                        return true;
+                      }).toList();
 
-                      final bool showAC = activeRoom == "All Rooms" || activeRoom == "Bedroom";
-                      if (showAC && index == 1) {
+                      final bool showAC = (activeRoom == "All Rooms" || activeRoom == "Bedroom") &&
+                          (activeStatusFilter == "All" || activeStatusFilter == "Online");
+                      return (showAC ? 1 : 0) + statusFiltered.length;
+                    })(),
+                    itemBuilder: (context, index) {
+                      final roomFiltered = activeRoom == "All Rooms"
+                          ? dynamicDevices
+                          : dynamicDevices.where((d) => d["room"] == activeRoom).toList();
+                      final statusFiltered = roomFiltered.where((d) {
+                        final status = d["status"] ?? "online";
+                        if (activeStatusFilter == "All") return true;
+                        if (activeStatusFilter == "Online") return status == "online";
+                        if (activeStatusFilter == "Offline") return status == "offline";
+                        if (activeStatusFilter == "Faulty") return status == "faulty";
+                        return true;
+                      }).toList();
+
+                      final bool showAC = (activeRoom == "All Rooms" || activeRoom == "Bedroom") &&
+                          (activeStatusFilter == "All" || activeStatusFilter == "Online");
+
+                      if (showAC && index == 0) {
                         return _buildACCard();
                       }
 
                       int deviceIndex = index;
-                      if (showAC && index > 1) {
+                      if (showAC) {
                         deviceIndex = index - 1;
                       }
 
-                      if (deviceIndex >= filteredDevices.length || deviceIndex < 0) {
+                      if (deviceIndex >= statusFiltered.length || deviceIndex < 0) {
                         return const SizedBox.shrink();
                       }
 
-                      final device = filteredDevices[deviceIndex];
+                      final device = statusFiltered[deviceIndex];
                       final String id = device["id"] ?? "";
                       final String name = device["name"] ?? "";
                       final String room = device["room"] ?? "";
@@ -316,6 +346,7 @@ class _TabletBodyState extends State<TabletBody> {
                       final bool state = device["state"] ?? false;
                       final String iconStr = device["icon"] ?? "lightbulb";
                       final String glowColorStr = device["glowColor"] ?? "amber";
+                      final String status = device["status"] ?? "online";
 
                       IconData deviceIcon;
                       switch (iconStr) {
@@ -349,6 +380,7 @@ class _TabletBodyState extends State<TabletBody> {
                           glowColor: glowColor,
                           isWired: isWired,
                           port: port,
+                          status: status,
                         ),
                       );
                     },
@@ -491,42 +523,51 @@ class _TabletBodyState extends State<TabletBody> {
               return Container(
                 width: 140,
                 margin: const EdgeInsets.only(right: 10),
-                child: GlassContainer(
-                  glowColor: activeDevicesInRoom > 0 ? const Color(0xFF8E99F3) : null,
-                  padding: const EdgeInsets.all(12),
-                  child: Stack(
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(room, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.2)),
-                          const SizedBox(height: 4),
-                          Text("$totalDevicesInRoom Nodes Total", style: const TextStyle(fontSize: 9, color: Colors.white38)),
-                          Text("$activeDevicesInRoom Active Now", style: TextStyle(fontSize: 9, color: activeDevicesInRoom > 0 ? const Color(0xFF8E99F3) : Colors.white24)),
-                        ],
-                      ),
-                      if (room != "Living Room" && room != "Bedroom" && room != "Kitchen" && room != "Smart Office")
-                        Positioned(
-                          top: -6,
-                          right: -6,
-                          child: IconButton(
-                            icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.redAccent, size: 14),
-                            onPressed: () {
-                              if (totalDevicesInRoom > 0) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text("Cannot delete a room that still contains appliances. Relocate them first.")),
-                                );
-                                return;
-                              }
-                              setState(() {
-                                userRooms.remove(room);
-                                _logEvent("Deleted empty custom room: $room");
-                              });
-                            },
-                          ),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      activeRoom = room;
+                      selectedSection = "Dashboard";
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: GlassContainer(
+                    glowColor: activeDevicesInRoom > 0 ? const Color(0xFF8E99F3) : null,
+                    padding: const EdgeInsets.all(12),
+                    child: Stack(
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(room, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.2)),
+                            const SizedBox(height: 4),
+                            Text("$totalDevicesInRoom Nodes Total", style: const TextStyle(fontSize: 9, color: Colors.white38)),
+                            Text("$activeDevicesInRoom Active Now", style: TextStyle(fontSize: 9, color: activeDevicesInRoom > 0 ? const Color(0xFF8E99F3) : Colors.white24)),
+                          ],
                         ),
-                    ],
+                        if (room != "Living Room" && room != "Bedroom" && room != "Kitchen" && room != "Smart Office")
+                          Positioned(
+                            top: -6,
+                            right: -6,
+                            child: IconButton(
+                              icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.redAccent, size: 14),
+                              onPressed: () {
+                                if (totalDevicesInRoom > 0) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("Cannot delete a room that still contains appliances. Relocate them first.")),
+                                  );
+                                  return;
+                                }
+                                setState(() {
+                                  userRooms.remove(room);
+                                  _logEvent("Deleted empty custom room: $room");
+                                });
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -1876,6 +1917,117 @@ class _TabletBodyState extends State<TabletBody> {
     );
   }
 
+  Widget _buildStatusFilters() {
+    final int allCount = dynamicDevices.length + 1;
+    final int onlineCount = dynamicDevices.where((d) => d["status"] == "online" || d["status"] == null).length + 1;
+    final int offlineCount = dynamicDevices.where((d) => d["status"] == "offline").length;
+    final int faultyCount = dynamicDevices.where((d) => d["status"] == "faulty").length;
+
+    final List<Map<String, dynamic>> filters = [
+      {"label": "All Nodes", "filter": "All", "count": allCount, "color": Colors.white},
+      {"label": "Online", "filter": "Online", "count": onlineCount, "color": Colors.greenAccent},
+      {"label": "Offline", "filter": "Offline", "count": offlineCount, "color": Colors.white54},
+      {"label": "Faulty", "filter": "Faulty", "count": faultyCount, "color": Colors.redAccent},
+    ];
+
+    return SizedBox(
+      height: 32,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: filters.length,
+        itemBuilder: (context, index) {
+          final filter = filters[index];
+          final bool isSelected = activeStatusFilter == filter["filter"];
+          final Color badgeColor = filter["color"];
+
+          return Container(
+            margin: const EdgeInsets.only(right: 6),
+            child: InkWell(
+              onTap: () => setState(() => activeStatusFilter = filter["filter"]),
+              borderRadius: BorderRadius.circular(16),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: isSelected ? badgeColor.withOpacity(0.15) : Colors.white.withOpacity(0.04),
+                  border: Border.all(
+                    color: isSelected ? badgeColor : Colors.white.withOpacity(0.08),
+                    width: 0.8,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (filter["filter"] != "All") ...[
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: badgeColor,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      "${filter["label"]} (${filter["count"]})",
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? badgeColor : Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String status) {
+    Color color;
+    switch (status) {
+      case "offline":
+        color = Colors.white38;
+        break;
+      case "faulty":
+        color = Colors.redAccent;
+        break;
+      default:
+        color = Colors.greenAccent;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3), width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 4,
+            height: 4,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 3),
+          Text(
+            status.toUpperCase(),
+            style: TextStyle(fontSize: 6, fontWeight: FontWeight.bold, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildWeatherWidget() {
     return GlassContainer(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1905,6 +2057,7 @@ class _TabletBodyState extends State<TabletBody> {
     required Color glowColor,
     required bool isWired,
     required int? port,
+    String status = "online",
   }) {
     return GlassContainer(
       glowColor: isActive ? glowColor : null,
@@ -1932,7 +2085,13 @@ class _TabletBodyState extends State<TabletBody> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(room.toUpperCase(), style: const TextStyle(fontSize: 8, color: Colors.white38, fontWeight: FontWeight.bold)),
+                  Row(
+                    children: [
+                      Text(room.toUpperCase(), style: const TextStyle(fontSize: 8, color: Colors.white38, fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 5),
+                      _buildStatusBadge(status),
+                    ],
+                  ),
                   if (isWired && port != null)
                     Text("PORT $port", style: const TextStyle(fontSize: 8, color: Colors.greenAccent, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
                 ],

@@ -31,7 +31,8 @@ class NetworkService {
       "port": 2, // Built-in LED pin
       "state": false,
       "icon": "lightbulb",
-      "glowColor": "amber"
+      "glowColor": "amber",
+      "status": "online"
     },
     {
       "id": "device_purifier",
@@ -41,7 +42,8 @@ class NetworkService {
       "port": null,
       "state": true,
       "icon": "air",
-      "glowColor": "teal"
+      "glowColor": "teal",
+      "status": "online"
     },
     {
       "id": "device_camera",
@@ -49,9 +51,21 @@ class NetworkService {
       "room": "Entrance",
       "isWired": false,
       "port": null,
-      "state": true,
+      "state": false,
       "icon": "videocam",
-      "glowColor": "blue"
+      "glowColor": "blue",
+      "status": "offline"
+    },
+    {
+      "id": "device_humidifier",
+      "name": "Smart Humidifier",
+      "room": "Kitchen",
+      "isWired": true,
+      "port": 15,
+      "state": false,
+      "icon": "air",
+      "glowColor": "orange",
+      "status": "faulty"
     }
   ];
 
@@ -152,6 +166,7 @@ class NetworkService {
                 "state": val["state"] ?? false,
                 "icon": val["icon"] ?? "lightbulb",
                 "glowColor": val["glowColor"] ?? "amber",
+                "status": val["status"] ?? "online",
               });
             }
           });
@@ -272,6 +287,7 @@ class NetworkService {
       "state": device["state"] ?? false,
       "icon": device["icon"] ?? "lightbulb",
       "glowColor": device["glowColor"] ?? "amber",
+      "status": device["status"] ?? "online",
     };
 
     if (_isLocalMode) {
