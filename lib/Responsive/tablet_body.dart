@@ -57,7 +57,7 @@ class _TabletBodyState extends State<TabletBody> {
 
   bool isCheckingOTA = false;
   double uiContrast = 1.0;
-  String mdnsHost = "aura-hub.local";
+  String mdnsHost = "aminai-hub.local";
 
   void _logEvent(String message) {
     final now = DateTime.now();
@@ -778,7 +778,7 @@ class _TabletBodyState extends State<TabletBody> {
                         value: rm,
                         child: Text(
                           rm,
-                          style: const TextStyle(fontSize: 12, color: Colors.black85),
+                          style: const TextStyle(fontSize: 12, color: Colors.black87),
                         ),
                       );
                     }).toList();
@@ -1812,7 +1812,7 @@ class _TabletBodyState extends State<TabletBody> {
                       ),
                       onPressed: () {
                         setState(() {
-                          mdnsHost = "aura-hub.local";
+                          mdnsHost = "aminai-hub.local";
                           systemLogs = [
                             "[12:45:10] Firebase RTDB: Connected to Cloud Server Stream",
                             "[12:30:00] ESP32 Hub: State synchronized with Flash NVS",

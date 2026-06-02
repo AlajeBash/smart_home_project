@@ -152,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           const SizedBox(height: 12.0),
                           Center(
                             child: Text(
-                              "AURA COMMAND",
+                              "AMINAI COMMAND",
                               style: TextStyle(
                                 fontSize: 24.0,
                                 fontWeight: FontWeight.w900,

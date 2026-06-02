@@ -58,7 +58,7 @@ class _MobileBodyState extends State<MobileBody> {
 
   bool isCheckingOTA = false;
   double uiContrast = 1.0;
-  String mdnsHost = "aura-hub.local";
+  String mdnsHost = "aminai-hub.local";
 
   void _logEvent(String message) {
     final now = DateTime.now();
@@ -736,7 +736,7 @@ class _MobileBodyState extends State<MobileBody> {
                         value: rm,
                         child: Text(
                           rm,
-                          style: const TextStyle(fontSize: 12, color: Colors.black85),
+                          style: const TextStyle(fontSize: 12, color: Colors.black87),
                         ),
                       );
                     }).toList();
@@ -1831,7 +1831,7 @@ class _MobileBodyState extends State<MobileBody> {
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                     decoration: const InputDecoration(
                       border: InputBorder.none,
-                      hintText: "aura-hub.local",
+                      hintText: "aminai-hub.local",
                       hintStyle: TextStyle(color: Colors.white24),
                     ),
                   ),
@@ -1892,7 +1892,7 @@ class _MobileBodyState extends State<MobileBody> {
                                 _logEvent("Firmware integrity check passed. Current: v1.0.8");
                               });
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("AURA Hub is secure. Firmware v1.0.8 up-to-date.")),
+                                const SnackBar(content: Text("Aminai Hub is secure. Firmware v1.0.8 up-to-date.")),
                               );
                             }
                           });
@@ -2008,7 +2008,7 @@ class _MobileBodyState extends State<MobileBody> {
                       onPressed: () {
                         setState(() {
                           userRooms = ["Living Room", "Bedroom", "Kitchen", "Smart Office"];
-                          mdnsHost = "aura-hub.local";
+                          mdnsHost = "aminai-hub.local";
                           uiContrast = 1.0;
                           enteredPin = "";
                           _logEvent("Flash Storage Formatted: Restored baseline presets");
@@ -2070,7 +2070,7 @@ class _MobileBodyState extends State<MobileBody> {
                     const Column(
                       children: [
                         Text(
-                          "AURA SMART",
+                          "AMINAI SMART",
                           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 2),
                         ),
                         Text(
@@ -2126,7 +2126,7 @@ class _MobileBodyState extends State<MobileBody> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text("AURA SMART", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1)),
+                      Text("AMINAI SMART", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1)),
                       Text("SYSTEM NODE v1.0", style: TextStyle(fontSize: 8, fontWeight: FontWeight.w500, color: Colors.white38)),
                     ],
                   ),
@@ -2807,7 +2807,7 @@ class _MobileBodyState extends State<MobileBody> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  "Are you sure you want to remove the registered device '$name' from the AURA controller network?",
+                  "Are you sure you want to remove the registered device '$name' from the AMINAI controller network?",
                   style: const TextStyle(fontSize: 12, color: Colors.white70, height: 1.4),
                 ),
                 const SizedBox(height: 20),
@@ -2950,7 +2950,7 @@ class _MobileBodyState extends State<MobileBody> {
           const SizedBox(height: 6),
           _buildDiagRow("WI-FI RSSI", "-48 dBm"),
           const SizedBox(height: 6),
-          _buildDiagRow("FIRMWARE VER", "AURA.ESP32.v1.0.8"),
+          _buildDiagRow("FIRMWARE VER", "AMINAI.ESP32.v1.0.8"),
           const SizedBox(height: 6),
           _buildDiagRow("SYSTEM UPTIME", "4d 18h 32m"),
         ],

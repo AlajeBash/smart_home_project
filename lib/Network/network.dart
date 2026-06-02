@@ -7,7 +7,7 @@ class NetworkService {
   final DatabaseReference _databaseRef = FirebaseDatabase.instance.ref();
   
   // Local network configuration gateway (mDNS resolving)
-  static const String localBaseUrl = "http://aura-hub.local";
+  static const String localBaseUrl = "http://aminai-hub.local";
   
   // Broadcast stream controllers to unify local subnet and global cloud feeds
   final _sensorController = StreamController<Map<String, dynamic>>.broadcast();
@@ -103,7 +103,7 @@ class NetworkService {
 
   /// Configures local polling direct from the ESP32 node
   void _enableLocalMode() {
-    print("AURA Connectivity Node: Offline Local Mode Engaged (Direct Subnet Communication)");
+    print("AMINAI Connectivity Node: Offline Local Mode Engaged (Direct Subnet Communication)");
     
     // Suspend Firebase cloud subscriptions to conserve cell/data plans
     _fbSensorSub?.cancel();
@@ -124,7 +124,7 @@ class NetworkService {
 
   /// Configures remote synchronization from Firebase Realtime Database
   void _enableCloudMode() {
-    print("AURA Connectivity Node: Global Cloud Mode Engaged (Firebase Sync Active)");
+    print("AMINAI Connectivity Node: Global Cloud Mode Engaged (Firebase Sync Active)");
     
     // Disable local polling
     _localPollTimer?.cancel();

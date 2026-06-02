@@ -57,7 +57,7 @@ class _DesktopBodyState extends State<DesktopBody> {
 
   bool isCheckingOTA = false;
   double uiContrast = 1.0;
-  String mdnsHost = "aura-hub.local";
+  String mdnsHost = "aminai-hub.local";
 
   void _logEvent(String message) {
     final now = DateTime.now();
@@ -228,7 +228,7 @@ class _DesktopBodyState extends State<DesktopBody> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "AURA",
+                            "AMINAI",
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
@@ -737,7 +737,7 @@ class _DesktopBodyState extends State<DesktopBody> {
               children: [
                 _buildDiagRow("IP ADDRESS", "192.168.1.145"),
                 _buildDiagRow("WI-FI STRENGTH", "-48 dBm (Strong)"),
-                _buildDiagRow("FIRMWARE VER", "AURA.ESP32.v1.0.8"),
+                _buildDiagRow("FIRMWARE VER", "AMINAI.ESP32.v1.0.8"),
                 _buildDiagRow("SYSTEM UPTIME", "4d 18h 32m"),
               ],
             ),
@@ -1051,7 +1051,7 @@ class _DesktopBodyState extends State<DesktopBody> {
                           value: rm,
                           child: Text(
                             rm,
-                            style: const TextStyle(fontSize: 12, color: Colors.black85),
+                             style: const TextStyle(fontSize: 12, color: Colors.black87),
                           ),
                         );
                       }).toList();
@@ -2090,7 +2090,7 @@ class _DesktopBodyState extends State<DesktopBody> {
                       ),
                       onPressed: () {
                         setState(() {
-                          mdnsHost = "aura-hub.local";
+                          mdnsHost = "aminai-hub.local";
                           systemLogs = [
                             "[12:45:10] Firebase RTDB: Connected to Cloud Server Stream",
                             "[12:30:00] ESP32 Hub: State synchronized with Flash NVS",
@@ -3175,7 +3175,7 @@ class _DesktopBodyState extends State<DesktopBody> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  "Are you sure you want to remove the registered device '$name' from the AURA controller network?",
+                  "Are you sure you want to remove the registered device '$name' from the AMINAI controller network?",
                   style: const TextStyle(fontSize: 12, color: Colors.white70, height: 1.4),
                 ),
                 const SizedBox(height: 20),

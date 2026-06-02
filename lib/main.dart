@@ -6,17 +6,17 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const AuraSmartHomeApp());
+  runApp(const AminaiSmartHomeApp());
 }
 
-class AuraSmartHomeApp extends StatelessWidget {
-  const AuraSmartHomeApp({super.key});
+class AminaiSmartHomeApp extends StatelessWidget {
+  const AminaiSmartHomeApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'AURA Smart Home',
+      title: 'Aminai Smart Home',
       theme: ThemeData(
         brightness: Brightness.dark,
         primaryColor: const Color(0xFF8E99F3),

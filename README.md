@@ -1,10 +1,10 @@
-# Aura Smart Home (AURA IoT)
+# Aminai Smart Home (Aminai IoT)
 ### Symmetrical Multi-Platform Web Panel • ESP32 Smart Firmware • Realtime Failover Engine
 
 [![Firebase Deployment](https://github.com/AlajeBash/smart_home_project/actions/workflows/firebase-hosting-pull-request.yml/badge.svg)](https://github.com/AlajeBash/smart_home_project/actions)
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 
-Aura Smart Home is a premium, enterprise-grade, high-fidelity IoT dashboard and micro-controller suite. It features **symmetrical glassmorphic UX** across Mobile, Tablet, and Desktop form factors, an **offline direct-subnet auto-discovery failover engine**, and **dynamic hardware pin registration** directly from the cloud.
+Aminai Smart Home is a premium, enterprise-grade, high-fidelity IoT dashboard and micro-controller suite. It features **symmetrical glassmorphic UX** across Mobile, Tablet, and Desktop form factors, an **offline direct-subnet auto-discovery failover engine**, and **dynamic hardware pin registration** directly from the cloud.
 
 #### 🌐 Deployed Live Demography
 * **Primary Live Web Panel**: [https://bash-smart-home-esp32.web.app/](https://bash-smart-home-esp32.web.app/)
@@ -19,7 +19,7 @@ The architecture represents a robust, highly resilient, triple-layer modern IoT 
 ```mermaid
 flowchart TD
     subgraph Frontend [Flutter Multi-Platform UI]
-        A[AuraSmartHomeApp] --> B{Firebase Auth State?}
+        A[AminaiSmartHomeApp] --> B{Firebase Auth State?}
         B -- Logged In --> C[Homepage Responsive Dashboard]
         B -- Not Logged In --> D[Glassmorphic LoginScreen]
         C --> E[NetworkService Layer]
@@ -42,7 +42,7 @@ flowchart TD
     D <-->|Email/Pass Authenticate| F
     E <-->|Auto-Failover Remote Sync| G
     C <-->|Secure Session Tokens| F
-    E <-->|mDNS Probe: aura-hub.local| L
+    E <-->|mDNS Probe: aminai-hub.local| L
     I <-->|Sensor Stream & Relay Sync| G
     M <-->|Telemetry REST & WebSockets| C
 ```
@@ -52,14 +52,14 @@ flowchart TD
 ## ⚡ Key Feature Suites
 
 ### 1. Offline Direct-Subnet Auto-Discovery (`mDNS` & Failover)
-* **Local mDNS Responder**: The ESP32 hosts a multicast DNS server at `http://aura-hub.local` on Port `80`.
-* **Zero-Latency Failover (`NetworkService`)**: The Flutter web app continuously pings `aura-hub.local`. 
+* **Local mDNS Responder**: The ESP32 hosts a multicast DNS server at `http://aminai-hub.local` on Port `80`.
+* **Zero-Latency Failover (`NetworkService`)**: The Flutter web app continuously pings `aminai-hub.local`. 
   * If reachable, communication is hot-swapped to fast local HTTP REST endpoints (`/api/sensors` and `/api/device`), fully bypassing internet roundtrips.
   * If unreachable, it seamlessly reconnects to the Firebase Realtime Database stream without interrupting UI operations.
 
 ### 2. Captive Portal Hotspot Provisioning
 * **Secure Flash Storage (`Preferences.h`)**: SSID, Wi-Fi passwords, Firebase DB URLs, and API tokens are dynamically stored in secure non-volatile storage (NVS) blocks.
-* **Captive Hotspot Portal**: If connection configurations are missing or connection attempts time out (20 seconds), the ESP32 launches an open Access Point named **`AURA-SmartHub-Setup`**. 
+* **Captive Hotspot Portal**: If connection configurations are missing or connection attempts time out (20 seconds), the ESP32 launches an open Access Point named **`AMINAI-SmartHub-Setup`**. 
 * **Commissioning Dashboard**: Connect to `http://192.168.4.1` to access a high-fidelity glassmorphic commissioning webpage to scan local networks, insert credentials, and trigger a self-healing reboot.
 
 ### 3. Symmetrical Multi-Viewport Glassmorphic UI
@@ -135,7 +135,7 @@ flowchart TD
    * `Preferences` (NVS)
    * `ArduinoJson` (JSON streams parser)
 4. Upload the code to your ESP32.
-5. Search for the Wi-Fi network **`AURA-SmartHub-Setup`** on your smartphone.
+5. Search for the Wi-Fi network **`AMINAI-SmartHub-Setup`** on your smartphone.
 6. Input your home Wi-Fi SSID, password, Firebase Host url (`https://<project-id>.firebaseio.com`), and Web API Key, then click **Commission & Reboot**.
 
 ### 3. Local Broker Execution (Optional)
