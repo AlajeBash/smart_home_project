@@ -524,8 +524,9 @@ class _MobileBodyState extends State<MobileBody> {
                       ],
                     ),
                   ),
-                );
-              },
+                ),
+              );
+            },
             ),
           ),
           const SizedBox(height: 20),
