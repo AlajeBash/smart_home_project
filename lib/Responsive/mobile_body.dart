@@ -13,6 +13,14 @@ class _MobileBodyState extends State<MobileBody> {
   final NetworkService _networkService = NetworkService();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  // Real-time diagnostics state
+  bool isEspOnline = false;
+  String espIp = "0.0.0.0";
+  int espRssi = -100;
+  int espFreeHeap = 0;
+  String espUptime = "Offline";
+  StreamSubscription? _diagnosticsSub;
+
   double? temperature;
   double? humidity;
   bool relayState = false;
@@ -73,6 +81,70 @@ class _MobileBodyState extends State<MobileBody> {
     }
   }
 
+  Widget _buildPulsingStatusPill() {
+    final color = isEspOnline ? const Color(0xFF81C784) : const Color(0xFFE57373);
+    final text = isEspOnline ? "HUB ONLINE" : "HUB OFFLINE";
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+        boxShadow: isEspOnline ? [
+          BoxShadow(
+            color: color.withOpacity(0.2),
+            blurRadius: 8,
+            spreadRadius: 1,
+          )
+        ] : [],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: color,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getRssiLabel(int rssi) {
+    if (rssi == -100) return "(Offline)";
+    if (rssi >= -50) return "(Excellent)";
+    if (rssi >= -70) return "(Good)";
+    if (rssi >= -85) return "(Fair)";
+    return "(Poor)";
+  }
+
+  void _triggerReboot() {
+    _networkService.rebootController();
+    _logEvent("Issued remote system reboot command to ESP32 Hub");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text("Reboot command transmitted to ESP32 hub successfully."),
+        backgroundColor: Colors.amber.shade900,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   // Real-time chart history lists
   final List<double> tempHistory = [22.4, 22.8, 23.1, 23.5, 23.8, 24.2, 24.5, 24.3, 24.0, 23.8, 24.1, 24.4];
   final List<double> humHistory = [45.0, 46.2, 47.1, 48.5, 49.0, 50.2, 51.5, 52.0, 51.1, 49.5, 48.0, 48.8];
@@ -122,11 +194,24 @@ class _MobileBodyState extends State<MobileBody> {
         });
       }
     });
+
+    _diagnosticsSub = _networkService.listenToDiagnostics().listen((diag) {
+      if (mounted) {
+        setState(() {
+          isEspOnline = diag["online"] ?? false;
+          espIp = diag["ip"] ?? "0.0.0.0";
+          espRssi = diag["rssi"] ?? -100;
+          espFreeHeap = diag["free_heap"] ?? 0;
+          espUptime = diag["uptime"] ?? "Offline";
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _devicesSub?.cancel();
+    _diagnosticsSub?.cancel();
     super.dispose();
   }
 
@@ -394,6 +479,9 @@ class _MobileBodyState extends State<MobileBody> {
               final String iconStr = device["icon"] ?? "lightbulb";
               final String glowColorStr = device["glowColor"] ?? "amber";
               final String status = device["status"] ?? "online";
+              final String direction = device["direction"] ?? "output";
+              final String valueType = device["valueType"] ?? "binary";
+              final dynamic value = device["value"] ?? false;
 
               IconData deviceIcon;
               switch (iconStr) {
@@ -419,6 +507,7 @@ class _MobileBodyState extends State<MobileBody> {
               return GestureDetector(
                 onLongPress: () => _showDeleteConfirmation(id, name),
                 child: _buildDeviceCard(
+                  id: id,
                   icon: deviceIcon,
                   name: name,
                   room: room,
@@ -428,6 +517,9 @@ class _MobileBodyState extends State<MobileBody> {
                   isWired: isWired,
                   port: port,
                   status: status,
+                  direction: direction,
+                  valueType: valueType,
+                  value: value,
                 ),
               );
             },
@@ -2144,16 +2236,14 @@ class _MobileBodyState extends State<MobileBody> {
                       icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 26),
                       onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                     ),
-                    const Column(
+                    Column(
                       children: [
-                        Text(
+                        const Text(
                           "AMINAI SMART",
                           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 2),
                         ),
-                        Text(
-                          "MOBILE DASHBOARD",
-                          style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white38, letterSpacing: 1),
-                        ),
+                        const SizedBox(height: 4),
+                        _buildPulsingStatusPill(),
                       ],
                     ),
                     _buildWeatherWidget(),
@@ -2457,6 +2547,7 @@ class _MobileBodyState extends State<MobileBody> {
 
   // Device card builder
   Widget _buildDeviceCard({
+    required String id,
     required IconData icon,
     required String name,
     required String room,
@@ -2466,6 +2557,9 @@ class _MobileBodyState extends State<MobileBody> {
     bool isWired = false,
     int? port,
     String status = "online",
+    String direction = "output",
+    String valueType = "binary",
+    dynamic value,
   }) {
     return GlassContainer(
       padding: const EdgeInsets.all(8),
@@ -2522,17 +2616,86 @@ class _MobileBodyState extends State<MobileBody> {
                     ],
                   ],
                 ),
+                if (direction == "output" && valueType == "dimmer" && isActive) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            trackHeight: 1.5,
+                            activeTrackColor: glowColor,
+                            inactiveTrackColor: Colors.white12,
+                            thumbColor: Colors.white,
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 3.5),
+                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 7),
+                          ),
+                          child: Slider(
+                            value: (value is num) ? value.toDouble() : 0.0,
+                            min: 0,
+                            max: 100,
+                            onChanged: (newVal) {
+                              _networkService.updateDeviceValue(id, newVal.round());
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "${value ?? 0}%",
+                        style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800, color: glowColor),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
-          Transform.scale(
-            scale: 0.65,
-            child: Switch(
-              value: isActive,
-              activeColor: glowColor,
-              onChanged: onChanged,
+          if (direction == "input") ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: isActive ? glowColor.withOpacity(0.12) : Colors.white.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: isActive ? glowColor.withOpacity(0.25) : Colors.white10, width: 0.5),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 4.5,
+                    height: 4.5,
+                    decoration: BoxDecoration(
+                      color: isActive ? glowColor : Colors.white30,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    valueType == "analog_sensor"
+                        ? "${value ?? 0}"
+                        : (isActive ? "HIGH" : "LOW"),
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w800,
+                      color: isActive ? Colors.white : Colors.white38,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+          ] else ...[
+            Transform.scale(
+              scale: 0.65,
+              child: Switch(
+                value: isActive,
+                activeColor: glowColor,
+                inactiveThumbColor: Colors.white38,
+                inactiveTrackColor: Colors.white12,
+                onChanged: onChanged,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -2540,17 +2703,40 @@ class _MobileBodyState extends State<MobileBody> {
 
   void _showAddDeviceDialog() {
     final nameController = TextEditingController();
-    String selectedRoom = "Living Room";
+    String selectedRoom = userRooms.first;
     bool isWired = false;
     int? selectedPort = 13; // default GPIO 13
     String selectedIcon = "lightbulb";
     String selectedGlow = "amber";
+    
+    // Upgraded device attributes
+    String selectedDirection = "output"; // "output" or "input"
+    String selectedValType = "binary"; // "binary", "dimmer", "analog_sensor"
+    String selectedPinMode = "default"; // "default", "pullup", "pulldown"
+
+    // Safe pin lists
+    final List<int> reservedPins = [0, 1, 3, 4, 5, 12, 15];
+    final List<int> inputOnlyPins = [34, 35, 36, 39];
 
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            // Compute list of available ports based on direction
+            final List<int> allAvailablePins = [2, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33, 34, 35, 36, 39];
+            final List<int> availablePins = allAvailablePins.where((pin) {
+              if (selectedDirection == "output" && inputOnlyPins.contains(pin)) {
+                return false;
+              }
+              return true;
+            }).toList();
+
+            // Ensure selected port is in the available pins list
+            if (!availablePins.contains(selectedPort)) {
+              selectedPort = availablePins.first;
+            }
+
             return AlertDialog(
               backgroundColor: Colors.transparent,
               contentPadding: EdgeInsets.zero,
@@ -2558,10 +2744,10 @@ class _MobileBodyState extends State<MobileBody> {
               content: GlassContainer(
                 borderRadius: 20,
                 padding: const EdgeInsets.all(24),
-                bgOpacity: 0.08,
+                bgOpacity: 0.12,
                 borderOpacity: 0.15,
                 glowColor: const Color(0xFF8E99F3),
-                glowBlurRadius: 18.0,
+                glowBlurRadius: 20.0,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -2597,10 +2783,10 @@ class _MobileBodyState extends State<MobileBody> {
                         controller: nameController,
                         style: const TextStyle(color: Colors.white, fontSize: 13),
                         decoration: InputDecoration(
-                          hintText: "e.g., Dining Room Fan",
+                          hintText: "e.g., Office Spotlight",
                           hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
                           filled: true,
-                          fillColor: Colors.black12,
+                          fillColor: Colors.black26,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
@@ -2614,7 +2800,7 @@ class _MobileBodyState extends State<MobileBody> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Room Dropdown
+                      // Room Dropdown (Dynamic)
                       const Text(
                         "ASSIGN ROOM LOCATION",
                         style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1),
@@ -2623,7 +2809,7 @@ class _MobileBodyState extends State<MobileBody> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color: Colors.black12,
+                          color: Colors.black26,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: Colors.white.withOpacity(0.06)),
                         ),
@@ -2633,7 +2819,7 @@ class _MobileBodyState extends State<MobileBody> {
                           style: const TextStyle(color: Colors.white, fontSize: 13),
                           underline: const SizedBox(),
                           isExpanded: true,
-                          items: ["Living Room", "Bedroom", "Kitchen", "Office", "Bathroom", "Balcony"]
+                          items: userRooms
                               .map((r) => DropdownMenuItem(value: r, child: Text(r)))
                               .toList(),
                           onChanged: (v) {
@@ -2682,8 +2868,140 @@ class _MobileBodyState extends State<MobileBody> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Wired Port Selector (Omitted if Wireless)
                       if (isWired) ...[
+                        // INTERFACE DIRECTION (Input vs Output)
+                        const Text(
+                          "INTERFACE DIRECTION",
+                          style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ChoiceChip(
+                                label: const Text("OUTPUT CONTROLLER", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                                selected: selectedDirection == "output",
+                                selectedColor: const Color(0xFF8E99F3).withOpacity(0.3),
+                                backgroundColor: Colors.transparent,
+                                labelStyle: TextStyle(color: selectedDirection == "output" ? Colors.white : Colors.white38),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                onSelected: (selected) {
+                                  setDialogState(() {
+                                    selectedDirection = "output";
+                                    selectedValType = "binary"; // reset value type
+                                  });
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: ChoiceChip(
+                                label: const Text("INPUT SENSOR", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                                selected: selectedDirection == "input",
+                                selectedColor: const Color(0xFFE57373).withOpacity(0.3),
+                                backgroundColor: Colors.transparent,
+                                labelStyle: TextStyle(color: selectedDirection == "input" ? Colors.white : Colors.white38),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                onSelected: (selected) {
+                                  setDialogState(() {
+                                    selectedDirection = "input";
+                                    selectedValType = "binary"; // reset value type
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // CONTROL TYPE
+                        const Text(
+                          "CONTROL / VALUE TYPE",
+                          style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ChoiceChip(
+                                label: const Text("BINARY TOGGLE", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                                selected: selectedValType == "binary",
+                                selectedColor: const Color(0xFF5C6BC0).withOpacity(0.3),
+                                backgroundColor: Colors.transparent,
+                                labelStyle: TextStyle(color: selectedValType == "binary" ? Colors.white : Colors.white38),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                onSelected: (selected) {
+                                  setDialogState(() => selectedValType = "binary");
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            if (selectedDirection == "output")
+                              Expanded(
+                                child: ChoiceChip(
+                                  label: const Text("RANGE DIMMER", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                                  selected: selectedValType == "dimmer",
+                                  selectedColor: const Color(0xFF5C6BC0).withOpacity(0.3),
+                                  backgroundColor: Colors.transparent,
+                                  labelStyle: TextStyle(color: selectedValType == "dimmer" ? Colors.white : Colors.white38),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  onSelected: (selected) {
+                                    setDialogState(() => selectedValType = "dimmer");
+                                  },
+                                ),
+                              ),
+                            if (selectedDirection == "input")
+                              Expanded(
+                                child: ChoiceChip(
+                                  label: const Text("ANALOG SENSOR", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                                  selected: selectedValType == "analog_sensor",
+                                  selectedColor: const Color(0xFF5C6BC0).withOpacity(0.3),
+                                  backgroundColor: Colors.transparent,
+                                  labelStyle: TextStyle(color: selectedValType == "analog_sensor" ? Colors.white : Colors.white38),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  onSelected: (selected) {
+                                    setDialogState(() => selectedValType = "analog_sensor");
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // PIN CONFIG MODE (Pullup / Pulldown) - only shown for inputs
+                        if (selectedDirection == "input") ...[
+                          const Text(
+                            "PIN INTERNALS (PULL RESISTOR)",
+                            style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.black26,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white.withOpacity(0.06)),
+                            ),
+                            child: DropdownButton<String>(
+                              value: selectedPinMode,
+                              dropdownColor: const Color(0xFF101323),
+                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                              underline: const SizedBox(),
+                              isExpanded: true,
+                              items: const [
+                                DropdownMenuItem(value: "default", child: Text("Default Floating (INPUT)")),
+                                DropdownMenuItem(value: "pullup", child: Text("Internal Pull-Up (INPUT_PULLUP)")),
+                                DropdownMenuItem(value: "pulldown", child: Text("Internal Pull-Down (INPUT_PULLDOWN)")),
+                              ],
+                              onChanged: (v) {
+                                if (v != null) setDialogState(() => selectedPinMode = v);
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Wired Port Selector
                         const Text(
                           "SELECT DIRECT MCU PORT (GPIO PIN)",
                           style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1),
@@ -2692,7 +3010,7 @@ class _MobileBodyState extends State<MobileBody> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           decoration: BoxDecoration(
-                            color: Colors.black12,
+                            color: Colors.black26,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(color: Colors.white.withOpacity(0.06)),
                           ),
@@ -2702,14 +3020,39 @@ class _MobileBodyState extends State<MobileBody> {
                             style: const TextStyle(color: Colors.white, fontSize: 13),
                             underline: const SizedBox(),
                             isExpanded: true,
-                            items: [2, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33]
-                                .map((pin) => DropdownMenuItem(value: pin, child: Text("GPIO Pin $pin")))
+                            items: availablePins
+                                .map((pin) => DropdownMenuItem(
+                                      value: pin,
+                                      child: Text(
+                                        "GPIO Pin $pin ${reservedPins.contains(pin) ? '(RESERVED)' : ''}",
+                                        style: TextStyle(
+                                          color: reservedPins.contains(pin) ? const Color(0xFFE57373) : Colors.white,
+                                        ),
+                                      ),
+                                    ))
                                 .toList(),
                             onChanged: (v) {
                               if (v != null) setDialogState(() => selectedPort = v);
                             },
                           ),
                         ),
+                        
+                        // Show Warning if a reserved pin is chosen
+                        if (reservedPins.contains(selectedPort)) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              const Icon(Icons.warning_amber_rounded, color: Color(0xFFE57373), size: 12),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  "WARNING: Pin $selectedPort is a system boot/DHT pin. Assigning it can cause boot-loops.",
+                                  style: const TextStyle(color: Color(0xFFE57373), fontSize: 9, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         const SizedBox(height: 16),
                       ],
 
@@ -2763,6 +3106,20 @@ class _MobileBodyState extends State<MobileBody> {
                             );
                             return;
                           }
+
+                          // Validation for duplicate pin
+                          if (isWired && selectedPort != null) {
+                            final bool pinExists = dynamicDevices.any((d) => d["isWired"] == true && d["port"] == selectedPort);
+                            if (pinExists) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text("Collision! GPIO Pin $selectedPort is already assigned to another device."),
+                                  backgroundColor: const Color(0xFFE57373),
+                                ),
+                              );
+                              return;
+                            }
+                          }
                           
                           final String newId = "device_${DateTime.now().millisecondsSinceEpoch}";
                           final Map<String, dynamic> newDevice = {
@@ -2771,13 +3128,18 @@ class _MobileBodyState extends State<MobileBody> {
                             "room": selectedRoom,
                             "isWired": isWired,
                             "port": isWired ? selectedPort : null,
+                            "direction": isWired ? selectedDirection : "output",
+                            "valueType": isWired ? selectedValType : "binary",
+                            "pinMode": isWired ? selectedPinMode : "default",
                             "state": false,
+                            "value": selectedValType == "dimmer" ? 0 : false,
                             "icon": selectedIcon,
                             "glowColor": selectedGlow,
                           };
 
                           _networkService.addDevice(newDevice);
                           Navigator.pop(context);
+                          _logEvent("Registered new device: '${nameController.text.trim()}' in $selectedRoom");
                           
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -3023,13 +3385,36 @@ class _MobileBodyState extends State<MobileBody> {
         childrenPadding: const EdgeInsets.all(12.0),
         shape: const Border(), // Removes bottom dividers
         children: [
-          _buildDiagRow("IP ADDRESS", "192.168.1.145"),
+          _buildDiagRow("IP ADDRESS", espIp),
           const SizedBox(height: 6),
-          _buildDiagRow("WI-FI RSSI", "-48 dBm"),
+          _buildDiagRow("WI-FI RSSI", "$espRssi dBm ${_getRssiLabel(espRssi)}"),
           const SizedBox(height: 6),
-          _buildDiagRow("FIRMWARE VER", "AMINAI.ESP32.v1.0.8"),
+          _buildDiagRow("FREE HEAP", "${(espFreeHeap / 1024).toStringAsFixed(1)} KB"),
           const SizedBox(height: 6),
-          _buildDiagRow("SYSTEM UPTIME", "4d 18h 32m"),
+          _buildDiagRow("SYSTEM UPTIME", espUptime),
+          const Divider(color: Colors.white10, height: 16),
+          ElevatedButton.icon(
+            onPressed: isEspOnline ? _triggerReboot : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE57373).withOpacity(0.12),
+              disabledBackgroundColor: Colors.white10,
+              foregroundColor: const Color(0xFFE57373),
+              disabledForegroundColor: Colors.white24,
+              shadowColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: BorderSide(
+                  color: isEspOnline ? const Color(0xFFE57373).withOpacity(0.3) : Colors.transparent,
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+            ),
+            icon: const Icon(Icons.restart_alt_rounded, size: 14),
+            label: const Text(
+              "REBOOT CONTROLLER",
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+            ),
+          ),
         ],
       ),
     );

@@ -12,6 +12,14 @@ class TabletBody extends StatefulWidget {
 class _TabletBodyState extends State<TabletBody> {
   final NetworkService _networkService = NetworkService();
 
+  // Real-time diagnostics state
+  bool isEspOnline = false;
+  String espIp = "0.0.0.0";
+  int espRssi = -100;
+  int espFreeHeap = 0;
+  String espUptime = "Offline";
+  StreamSubscription? _diagnosticsSub;
+
   double? temperature;
   double? humidity;
   bool relayState = false;
@@ -72,6 +80,70 @@ class _TabletBodyState extends State<TabletBody> {
     }
   }
 
+  Widget _buildPulsingStatusPill() {
+    final color = isEspOnline ? const Color(0xFF81C784) : const Color(0xFFE57373);
+    final text = isEspOnline ? "HUB ONLINE" : "HUB OFFLINE";
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+        boxShadow: isEspOnline ? [
+          BoxShadow(
+            color: color.withOpacity(0.2),
+            blurRadius: 8,
+            spreadRadius: 1,
+          )
+        ] : [],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: color,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getRssiLabel(int rssi) {
+    if (rssi == -100) return "(Offline)";
+    if (rssi >= -50) return "(Excellent)";
+    if (rssi >= -70) return "(Good)";
+    if (rssi >= -85) return "(Fair)";
+    return "(Poor)";
+  }
+
+  void _triggerReboot() {
+    _networkService.rebootController();
+    _logEvent("Issued remote system reboot command to ESP32 Hub");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text("Reboot command transmitted to ESP32 hub successfully."),
+        backgroundColor: Colors.amber.shade900,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   // Real-time chart history lists
   final List<double> tempHistory = [22.4, 22.8, 23.1, 23.5, 23.8, 24.2, 24.5, 24.3, 24.0, 23.8, 24.1, 24.4];
   final List<double> humHistory = [45.0, 46.2, 47.1, 48.5, 49.0, 50.2, 51.5, 52.0, 51.1, 49.5, 48.0, 48.8];
@@ -85,6 +157,7 @@ class _TabletBodyState extends State<TabletBody> {
   @override
   void dispose() {
     _devicesSub?.cancel();
+    _diagnosticsSub?.cancel();
     _networkService.dispose();
     super.dispose();
   }
@@ -124,6 +197,18 @@ class _TabletBodyState extends State<TabletBody> {
           if (lightDevice.isNotEmpty) {
             relayState = lightDevice["state"] ?? false;
           }
+        });
+      }
+    });
+
+    _diagnosticsSub = _networkService.listenToDiagnostics().listen((diag) {
+      if (mounted) {
+        setState(() {
+          isEspOnline = diag["online"] ?? false;
+          espIp = diag["ip"] ?? "0.0.0.0";
+          espRssi = diag["rssi"] ?? -100;
+          espFreeHeap = diag["free_heap"] ?? 0;
+          espUptime = diag["uptime"] ?? "Offline";
         });
       }
     });
@@ -223,6 +308,8 @@ class _TabletBodyState extends State<TabletBody> {
                       activeRoom == "All Rooms" ? "Bash Smart Hub" : "$activeRoom View",
                       style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5),
                     ),
+                    const SizedBox(width: 15),
+                    _buildPulsingStatusPill(),
                     if (activeRoom != "All Rooms") ...[
                       const SizedBox(width: 12),
                       TextButton.icon(
@@ -381,6 +468,9 @@ class _TabletBodyState extends State<TabletBody> {
                       final String iconStr = device["icon"] ?? "lightbulb";
                       final String glowColorStr = device["glowColor"] ?? "amber";
                       final String status = device["status"] ?? "online";
+                      final String direction = device["direction"] ?? "output";
+                      final String valueType = device["valueType"] ?? "binary";
+                      final dynamic value = device["value"];
 
                       IconData deviceIcon;
                       switch (iconStr) {
@@ -406,6 +496,7 @@ class _TabletBodyState extends State<TabletBody> {
                       return GestureDetector(
                         onLongPress: () => _showDeleteConfirmation(id, name),
                         child: _buildDeviceCard(
+                          id: id,
                           icon: deviceIcon,
                           name: name,
                           room: room,
@@ -415,6 +506,9 @@ class _TabletBodyState extends State<TabletBody> {
                           isWired: isWired,
                           port: port,
                           status: status,
+                          direction: direction,
+                          valueType: valueType,
+                          value: value,
                         ),
                       );
                     },
@@ -462,20 +556,46 @@ class _TabletBodyState extends State<TabletBody> {
 
                   // Diagnostics Panel
                   const Text(
-                    "HARDWARE STATUS",
+                    "HARDWARE DIAGNOSTICS",
                     style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white30, letterSpacing: 1.0),
                   ),
                   const SizedBox(height: 10),
                   GlassContainer(
                     bgOpacity: 0.05,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.all(12),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _buildDiagRow("IP ADDRESS", "192.168.1.145"),
+                        _buildDiagRow("IP ADDRESS", espIp),
                         const Divider(color: Colors.white10, height: 12),
-                        _buildDiagRow("WI-FI RSSI", "-48 dBm (Excellent)"),
+                        _buildDiagRow("WI-FI STRENGTH", "$espRssi dBm ${_getRssiLabel(espRssi)}"),
                         const Divider(color: Colors.white10, height: 12),
-                        _buildDiagRow("HW UPTIME", "4d 18h 32m"),
+                        _buildDiagRow("FREE HEAP MEM", "${(espFreeHeap / 1024).toStringAsFixed(1)} KB"),
+                        const Divider(color: Colors.white10, height: 12),
+                        _buildDiagRow("SYSTEM UPTIME", espUptime),
+                        const Divider(color: Colors.white10, height: 16),
+                        ElevatedButton.icon(
+                          onPressed: isEspOnline ? _triggerReboot : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE57373).withOpacity(0.12),
+                            disabledBackgroundColor: Colors.white10,
+                            foregroundColor: const Color(0xFFE57373),
+                            disabledForegroundColor: Colors.white24,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(
+                                color: isEspOnline ? const Color(0xFFE57373).withOpacity(0.3) : Colors.transparent,
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          icon: const Icon(Icons.restart_alt_rounded, size: 14),
+                          label: const Text(
+                            "REBOOT CONTROLLER",
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -2107,15 +2227,38 @@ class _TabletBodyState extends State<TabletBody> {
     final nameController = TextEditingController();
     String selectedRoom = userRooms.first;
     bool isWired = false;
-    int? selectedPort = 13;
+    int? selectedPort = 13; // default GPIO 13
     String selectedIcon = "lightbulb";
     String selectedGlow = "amber";
+    
+    // Upgraded device attributes
+    String selectedDirection = "output"; // "output" or "input"
+    String selectedValType = "binary"; // "binary", "dimmer", "analog_sensor"
+    String selectedPinMode = "default"; // "default", "pullup", "pulldown"
+
+    // Safe pin lists
+    final List<int> reservedPins = [0, 1, 3, 4, 5, 12, 15];
+    final List<int> inputOnlyPins = [34, 35, 36, 39];
 
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            // Compute list of available ports based on direction
+            final List<int> allAvailablePins = [2, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33, 34, 35, 36, 39];
+            final List<int> availablePins = allAvailablePins.where((pin) {
+              if (selectedDirection == "output" && inputOnlyPins.contains(pin)) {
+                return false;
+              }
+              return true;
+            }).toList();
+
+            // Ensure selected port is in the available pins list
+            if (!availablePins.contains(selectedPort)) {
+              selectedPort = availablePins.first;
+            }
+
             return AlertDialog(
               backgroundColor: Colors.transparent,
               contentPadding: EdgeInsets.zero,
@@ -2123,8 +2266,11 @@ class _TabletBodyState extends State<TabletBody> {
               content: GlassContainer(
                 borderRadius: 20,
                 padding: const EdgeInsets.all(24),
-                bgOpacity: 0.08,
+                bgOpacity: 0.12,
+                borderOpacity: 0.15,
                 glowColor: const Color(0xFF8E99F3),
+                glowBlurRadius: 20.0,
+                width: 420,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -2133,7 +2279,15 @@ class _TabletBodyState extends State<TabletBody> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text("REGISTER DEVICE", style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 2.0)),
+                          const Text(
+                            "REGISTER DEVICE",
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: 2.0,
+                            ),
+                          ),
                           IconButton(
                             icon: const Icon(Icons.close_rounded, color: Colors.white38, size: 18),
                             onPressed: () => Navigator.pop(context),
@@ -2141,36 +2295,56 @@ class _TabletBodyState extends State<TabletBody> {
                         ],
                       ),
                       const SizedBox(height: 18),
-
-                      const Text("DEVICE NAME", style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1)),
+                      
+                      // Name Input
+                      const Text(
+                        "DEVICE NAME",
+                        style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1),
+                      ),
                       const SizedBox(height: 6),
                       TextField(
                         controller: nameController,
                         style: const TextStyle(color: Colors.white, fontSize: 13),
                         decoration: InputDecoration(
-                          hintText: "e.g., Office Fan",
+                          hintText: "e.g., Office Spotlight",
                           hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
                           filled: true,
-                          fillColor: Colors.black12,
+                          fillColor: Colors.black26,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.white.withOpacity(0.06))),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF8E99F3))),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.white.withOpacity(0.06)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: Color(0xFF8E99F3)),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
 
-                      const Text("ASSIGN ROOM LOCATION", style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1)),
+                      // Room Dropdown (Dynamic)
+                      const Text(
+                        "ASSIGN ROOM LOCATION",
+                        style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1),
+                      ),
                       const SizedBox(height: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white.withOpacity(0.06))),
+                        decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white.withOpacity(0.06)),
+                        ),
                         child: DropdownButton<String>(
                           value: selectedRoom,
                           dropdownColor: const Color(0xFF101323),
                           style: const TextStyle(color: Colors.white, fontSize: 13),
                           underline: const SizedBox(),
                           isExpanded: true,
-                          items: userRooms.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                          items: userRooms
+                              .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                              .toList(),
                           onChanged: (v) {
                             if (v != null) setDialogState(() => selectedRoom = v);
                           },
@@ -2178,7 +2352,11 @@ class _TabletBodyState extends State<TabletBody> {
                       ),
                       const SizedBox(height: 16),
 
-                      const Text("HARDWARE INTERFACE TYPE", style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1)),
+                      // Wired vs Wireless Toggle
+                      const Text(
+                        "HARDWARE INTERFACE TYPE",
+                        style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1),
+                      ),
                       const SizedBox(height: 6),
                       Row(
                         children: [
@@ -2190,7 +2368,9 @@ class _TabletBodyState extends State<TabletBody> {
                               backgroundColor: Colors.transparent,
                               labelStyle: TextStyle(color: isWired ? Colors.white : Colors.white38),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              onSelected: (selected) => setDialogState(() => isWired = true),
+                              onSelected: (selected) {
+                                setDialogState(() => isWired = true);
+                              },
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -2202,7 +2382,9 @@ class _TabletBodyState extends State<TabletBody> {
                               backgroundColor: Colors.transparent,
                               labelStyle: TextStyle(color: !isWired ? Colors.white : Colors.white38),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              onSelected: (selected) => setDialogState(() => isWired = false),
+                              onSelected: (selected) {
+                                setDialogState(() => isWired = false);
+                              },
                             ),
                           ),
                         ],
@@ -2210,29 +2392,198 @@ class _TabletBodyState extends State<TabletBody> {
                       const SizedBox(height: 16),
 
                       if (isWired) ...[
-                        const Text("SELECT MCU PORT (GPIO PIN)", style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1)),
+                        // INTERFACE DIRECTION (Input vs Output)
+                        const Text(
+                          "INTERFACE DIRECTION",
+                          style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ChoiceChip(
+                                label: const Text("OUTPUT CONTROLLER", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                                selected: selectedDirection == "output",
+                                selectedColor: const Color(0xFF8E99F3).withOpacity(0.3),
+                                backgroundColor: Colors.transparent,
+                                labelStyle: TextStyle(color: selectedDirection == "output" ? Colors.white : Colors.white38),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                onSelected: (selected) {
+                                  setDialogState(() {
+                                    selectedDirection = "output";
+                                    selectedValType = "binary"; // reset value type
+                                  });
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: ChoiceChip(
+                                label: const Text("INPUT SENSOR", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                                selected: selectedDirection == "input",
+                                selectedColor: const Color(0xFFE57373).withOpacity(0.3),
+                                backgroundColor: Colors.transparent,
+                                labelStyle: TextStyle(color: selectedDirection == "input" ? Colors.white : Colors.white38),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                onSelected: (selected) {
+                                  setDialogState(() {
+                                    selectedDirection = "input";
+                                    selectedValType = "binary"; // reset value type
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // CONTROL TYPE
+                        const Text(
+                          "CONTROL / VALUE TYPE",
+                          style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ChoiceChip(
+                                label: const Text("BINARY TOGGLE", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                                selected: selectedValType == "binary",
+                                selectedColor: const Color(0xFF5C6BC0).withOpacity(0.3),
+                                backgroundColor: Colors.transparent,
+                                labelStyle: TextStyle(color: selectedValType == "binary" ? Colors.white : Colors.white38),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                onSelected: (selected) {
+                                  setDialogState(() => selectedValType = "binary");
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            if (selectedDirection == "output")
+                              Expanded(
+                                child: ChoiceChip(
+                                  label: const Text("RANGE DIMMER", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                                  selected: selectedValType == "dimmer",
+                                  selectedColor: const Color(0xFF5C6BC0).withOpacity(0.3),
+                                  backgroundColor: Colors.transparent,
+                                  labelStyle: TextStyle(color: selectedValType == "dimmer" ? Colors.white : Colors.white38),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  onSelected: (selected) {
+                                    setDialogState(() => selectedValType = "dimmer");
+                                  },
+                                ),
+                              ),
+                            if (selectedDirection == "input")
+                              Expanded(
+                                child: ChoiceChip(
+                                  label: const Text("ANALOG SENSOR", style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                                  selected: selectedValType == "analog_sensor",
+                                  selectedColor: const Color(0xFF5C6BC0).withOpacity(0.3),
+                                  backgroundColor: Colors.transparent,
+                                  labelStyle: TextStyle(color: selectedValType == "analog_sensor" ? Colors.white : Colors.white38),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  onSelected: (selected) {
+                                    setDialogState(() => selectedValType = "analog_sensor");
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // PIN CONFIG MODE (Pullup / Pulldown) - only shown for inputs
+                        if (selectedDirection == "input") ...[
+                          const Text(
+                            "PIN INTERNALS (PULL RESISTOR)",
+                            style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.black26,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white.withOpacity(0.06)),
+                            ),
+                            child: DropdownButton<String>(
+                              value: selectedPinMode,
+                              dropdownColor: const Color(0xFF101323),
+                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                              underline: const SizedBox(),
+                              isExpanded: true,
+                              items: const [
+                                DropdownMenuItem(value: "default", child: Text("Default Floating (INPUT)")),
+                                DropdownMenuItem(value: "pullup", child: Text("Internal Pull-Up (INPUT_PULLUP)")),
+                                DropdownMenuItem(value: "pulldown", child: Text("Internal Pull-Down (INPUT_PULLDOWN)")),
+                              ],
+                              onChanged: (v) {
+                                if (v != null) setDialogState(() => selectedPinMode = v);
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Wired Port Selector
+                        const Text(
+                          "SELECT DIRECT MCU PORT (GPIO PIN)",
+                          style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1),
+                        ),
                         const SizedBox(height: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white.withOpacity(0.06))),
+                          decoration: BoxDecoration(
+                            color: Colors.black26,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white.withOpacity(0.06)),
+                          ),
                           child: DropdownButton<int>(
                             value: selectedPort,
                             dropdownColor: const Color(0xFF101323),
                             style: const TextStyle(color: Colors.white, fontSize: 13),
                             underline: const SizedBox(),
                             isExpanded: true,
-                            items: [2, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33]
-                                .map((pin) => DropdownMenuItem(value: pin, child: Text("GPIO Pin $pin")))
+                            items: availablePins
+                                .map((pin) => DropdownMenuItem(
+                                      value: pin,
+                                      child: Text(
+                                        "GPIO Pin $pin ${reservedPins.contains(pin) ? '(RESERVED)' : ''}",
+                                        style: TextStyle(
+                                          color: reservedPins.contains(pin) ? const Color(0xFFE57373) : Colors.white,
+                                        ),
+                                      ),
+                                    ))
                                 .toList(),
                             onChanged: (v) {
                               if (v != null) setDialogState(() => selectedPort = v);
                             },
                           ),
                         ),
+                        
+                        // Show Warning if a reserved pin is chosen
+                        if (reservedPins.contains(selectedPort)) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              const Icon(Icons.warning_amber_rounded, color: Color(0xFFE57373), size: 12),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  "WARNING: Pin $selectedPort is a system boot/DHT pin. Assigning it can cause boot-loops.",
+                                  style: const TextStyle(color: Color(0xFFE57373), fontSize: 9, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         const SizedBox(height: 16),
                       ],
 
-                      const Text("DEVICE ICON SYMBOL", style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1)),
+                      // Icon category
+                      const Text(
+                        "DEVICE ICON SYMBOL",
+                        style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1),
+                      ),
                       const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2246,7 +2597,11 @@ class _TabletBodyState extends State<TabletBody> {
                       ),
                       const SizedBox(height: 16),
 
-                      const Text("GLOW COLOR THEME", style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1)),
+                      // Glow Color choice
+                      const Text(
+                        "GLOW COLOR THEME",
+                        style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white54, letterSpacing: 1),
+                      ),
                       const SizedBox(height: 6),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2260,10 +2615,35 @@ class _TabletBodyState extends State<TabletBody> {
                       ),
                       const SizedBox(height: 28),
 
+                      // Submit Button
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5C6BC0), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: const EdgeInsets.symmetric(vertical: 14)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF5C6BC0),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
                         onPressed: () {
-                          if (nameController.text.trim().isEmpty) return;
+                          if (nameController.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Please provide a valid device name.")),
+                            );
+                            return;
+                          }
+
+                          // Validation for duplicate pin
+                          if (isWired && selectedPort != null) {
+                            final bool pinExists = dynamicDevices.any((d) => d["isWired"] == true && d["port"] == selectedPort);
+                            if (pinExists) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text("Collision! GPIO Pin $selectedPort is already assigned to another device."),
+                                  backgroundColor: const Color(0xFFE57373),
+                                ),
+                              );
+                              return;
+                            }
+                          }
+                          
                           final String newId = "device_${DateTime.now().millisecondsSinceEpoch}";
                           final Map<String, dynamic> newDevice = {
                             "id": newId,
@@ -2271,13 +2651,25 @@ class _TabletBodyState extends State<TabletBody> {
                             "room": selectedRoom,
                             "isWired": isWired,
                             "port": isWired ? selectedPort : null,
+                            "direction": isWired ? selectedDirection : "output",
+                            "valueType": isWired ? selectedValType : "binary",
+                            "pinMode": isWired ? selectedPinMode : "default",
                             "state": false,
+                            "value": selectedValType == "dimmer" ? 0 : false,
                             "icon": selectedIcon,
                             "glowColor": selectedGlow,
                           };
+
                           _networkService.addDevice(newDevice);
                           Navigator.pop(context);
-                          _logEvent("Registered new device: ${nameController.text.trim()} in $selectedRoom");
+                          _logEvent("Registered new device: '${nameController.text.trim()}' in $selectedRoom");
+                          
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text("Registered '${nameController.text.trim()}' successfully."),
+                              backgroundColor: const Color(0xFF81C784),
+                            ),
+                          );
                         },
                         child: const Text("PROVISION HARDWARE NODE", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1)),
                       ),
@@ -2559,6 +2951,7 @@ class _TabletBodyState extends State<TabletBody> {
   }
 
   Widget _buildDeviceCard({
+    required String id,
     required IconData icon,
     required String name,
     required String room,
@@ -2568,47 +2961,178 @@ class _TabletBodyState extends State<TabletBody> {
     required bool isWired,
     required int? port,
     String status = "online",
+    String direction = "output",
+    String valueType = "binary",
+    dynamic value,
   }) {
-    return GlassContainer(
-      glowColor: isActive ? glowColor : null,
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: (isActive ? glowColor : Colors.white).withOpacity(0.08), shape: BoxShape.circle),
-                child: Icon(icon, color: isActive ? glowColor : Colors.white54, size: 18),
-              ),
-              Switch(value: isActive, activeColor: glowColor, onChanged: onChanged),
-            ],
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.2)),
-              const SizedBox(height: 2),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Text(room.toUpperCase(), style: const TextStyle(fontSize: 8, color: Colors.white38, fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 5),
-                      _buildStatusBadge(status),
-                    ],
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: glowColor.withOpacity(0.18),
+                  blurRadius: 16,
+                  spreadRadius: -2,
+                ),
+              ]
+            : [],
+      ),
+      child: GlassContainer(
+        padding: const EdgeInsets.all(12),
+        borderRadius: 16,
+        bgOpacity: isActive ? 0.08 : 0.04,
+        glowColor: isActive ? glowColor : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  padding: const EdgeInsets.all(8.0),
+                  decoration: BoxDecoration(
+                    color: isActive ? glowColor.withOpacity(0.15) : Colors.white.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  if (isWired && port != null)
-                    Text("PORT $port", style: const TextStyle(fontSize: 8, color: Colors.greenAccent, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+                  child: Icon(
+                    icon,
+                    color: isActive ? glowColor : Colors.white30,
+                    size: 18,
+                  ),
+                ),
+                
+                // Render correct control/widget based on direction & valueType
+                if (direction == "input") ...[
+                  // Read-only indicator badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isActive ? glowColor.withOpacity(0.15) : Colors.white.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: isActive ? glowColor.withOpacity(0.3) : Colors.white10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: isActive ? glowColor : Colors.white30,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          valueType == "analog_sensor"
+                              ? "${value ?? 0}"
+                              : (isActive ? "HIGH" : "LOW"),
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: isActive ? Colors.white : Colors.white38,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (valueType == "dimmer") ...[
+                  Switch(
+                    value: isActive,
+                    activeColor: glowColor,
+                    inactiveThumbColor: Colors.white38,
+                    inactiveTrackColor: Colors.white12,
+                    onChanged: onChanged,
+                  ),
+                ] else ...[
+                  Switch(
+                    value: isActive,
+                    activeColor: glowColor,
+                    inactiveThumbColor: Colors.white38,
+                    inactiveTrackColor: Colors.white12,
+                    onChanged: onChanged,
+                  ),
+                ],
+              ],
+            ),
+            const Spacer(),
+            if (direction == "output" && valueType == "dimmer" && isActive) ...[
+              // Sleek inline slider for range-dimmer
+              Row(
+                children: [
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 2,
+                        activeTrackColor: glowColor,
+                        inactiveTrackColor: Colors.white12,
+                        thumbColor: Colors.white,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+                      ),
+                      child: Slider(
+                        value: (value is num) ? value.toDouble() : 0.0,
+                        min: 0,
+                        max: 100,
+                        onChanged: (newVal) {
+                          _networkService.updateDeviceValue(id, newVal.round());
+                        },
+                      ),
+                    ),
+                  ),
+                  Text(
+                    "${value ?? 0}%",
+                    style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: glowColor),
+                  ),
                 ],
               ),
+              const SizedBox(height: 4),
             ],
-          ),
-        ],
+            Text(
+              name,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: -0.2,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      room.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withOpacity(0.35),
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    _buildStatusBadge(status),
+                  ],
+                ),
+                Text(
+                  isWired ? "PIN $port" : "WIRELESS",
+                  style: TextStyle(
+                    fontSize: 7.5,
+                    fontWeight: FontWeight.w700,
+                    color: isWired ? const Color(0xFF8E99F3).withOpacity(0.6) : Colors.tealAccent.withOpacity(0.5),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -20,12 +20,14 @@ class NetworkService {
   final _sensorController = StreamController<Map<String, dynamic>>.broadcast();
   final _relayController = StreamController<bool>.broadcast();
   final _devicesController = StreamController<List<Map<String, dynamic>>>.broadcast();
+  final _diagnosticsController = StreamController<Map<String, dynamic>>.broadcast();
   
   bool _isLocalMode = false;
   Timer? _localPollTimer;
   StreamSubscription? _fbSensorSub;
   StreamSubscription? _fbRelaySub;
   StreamSubscription? _fbDevicesSub;
+  StreamSubscription? _fbDiagnosticsSub;
 
   List<Map<String, dynamic>> _cachedDevices = [];
 
@@ -36,7 +38,11 @@ class NetworkService {
       "room": "Living Room",
       "isWired": true,
       "port": 2, // Built-in LED pin
+      "direction": "output",
+      "valueType": "binary",
+      "pinMode": "default",
       "state": false,
+      "value": false,
       "icon": "lightbulb",
       "glowColor": "amber",
       "status": "online"
@@ -47,7 +53,11 @@ class NetworkService {
       "room": "Bedroom",
       "isWired": false,
       "port": null,
+      "direction": "output",
+      "valueType": "binary",
+      "pinMode": "default",
       "state": true,
+      "value": true,
       "icon": "air",
       "glowColor": "teal",
       "status": "online"
@@ -58,7 +68,11 @@ class NetworkService {
       "room": "Entrance",
       "isWired": false,
       "port": null,
+      "direction": "both",
+      "valueType": "binary",
+      "pinMode": "default",
       "state": false,
+      "value": false,
       "icon": "videocam",
       "glowColor": "blue",
       "status": "offline"
@@ -69,10 +83,14 @@ class NetworkService {
       "room": "Kitchen",
       "isWired": true,
       "port": 15,
+      "direction": "output",
+      "valueType": "dimmer",
+      "pinMode": "default",
       "state": false,
+      "value": 45,
       "icon": "air",
       "glowColor": "orange",
-      "status": "faulty"
+      "status": "online"
     }
   ];
 
@@ -116,6 +134,7 @@ class NetworkService {
     _fbSensorSub?.cancel();
     _fbRelaySub?.cancel();
     _fbDevicesSub?.cancel();
+    _fbDiagnosticsSub?.cancel();
     
     // Begin direct polling over local network
     _localPollTimer?.cancel();
@@ -127,6 +146,14 @@ class NetworkService {
       _cachedDevices = List.from(_defaultDevices);
     }
     _devicesController.add(_cachedDevices);
+
+    _diagnosticsController.add({
+      "online": true,
+      "ip": "aminai-hub.local",
+      "rssi": -35,
+      "free_heap": 218450,
+      "uptime": "Direct (LAN)",
+    });
   }
 
   /// Configures remote synchronization from Firebase Realtime Database
@@ -164,13 +191,19 @@ class NetworkService {
           final List<Map<String, dynamic>> devices = [];
           data.forEach((key, val) {
             if (val is Map) {
+              final String valType = val["valueType"] ?? "binary";
+              final dynamic rawValue = val["value"] ?? val["state"] ?? (valType == "dimmer" ? 0 : false);
               devices.add({
                 "id": key.toString(),
                 "name": val["name"] ?? "",
                 "room": val["room"] ?? "",
                 "isWired": val["isWired"] ?? false,
                 "port": val["port"],
-                "state": val["state"] ?? false,
+                "direction": val["direction"] ?? "output",
+                "valueType": valType,
+                "pinMode": val["pinMode"] ?? "default",
+                "state": val["state"] ?? (rawValue is bool ? rawValue : (rawValue is num && rawValue > 0)),
+                "value": rawValue,
                 "icon": val["icon"] ?? "lightbulb",
                 "glowColor": val["glowColor"] ?? "amber",
                 "status": val["status"] ?? "online",
@@ -180,6 +213,29 @@ class NetworkService {
           _cachedDevices = devices;
           _devicesController.add(_cachedDevices);
         }
+      }
+    });
+
+    _fbDiagnosticsSub?.cancel();
+    _fbDiagnosticsSub = _databaseRef.child("${_userBasePath}diagnostics").onValue.listen((event) {
+      final snapshot = event.snapshot;
+      if (snapshot.exists && snapshot.value is Map) {
+        final Map data = snapshot.value as Map;
+        _diagnosticsController.add({
+          "online": data["online"] ?? false,
+          "ip": data["ip"] ?? "0.0.0.0",
+          "rssi": data["rssi"] ?? -100,
+          "free_heap": data["free_heap"] ?? 0,
+          "uptime": data["uptime"] ?? "Offline",
+        });
+      } else {
+        _diagnosticsController.add({
+          "online": false,
+          "ip": "0.0.0.0",
+          "rssi": -100,
+          "free_heap": 0,
+          "uptime": "Offline",
+        });
       }
     });
   }
@@ -232,6 +288,14 @@ class NetworkService {
     return _devicesController.stream;
   }
 
+  /// Listens to the real-time ESP32 hardware diagnostics stream
+  Stream<Map<String, dynamic>> listenToDiagnostics() {
+    if (_fbDiagnosticsSub == null && _localPollTimer == null) {
+      _probeConnectivity();
+    }
+    return _diagnosticsController.stream;
+  }
+
   /// Toggles the light relay switch state locally or globally (legacy fallback)
   Future<void> toggleRelayState(bool value) async {
     if (_isLocalMode) {
@@ -251,10 +315,20 @@ class NetworkService {
 
   /// Toggles a specific dynamic device's state locally or globally
   Future<void> toggleDeviceState(String id, bool value) async {
+    await updateDeviceValue(id, value);
+  }
+
+  /// Updates a specific device's general value (boolean toggle or numerical dim/sensor representation)
+  Future<void> updateDeviceValue(String id, dynamic value) async {
     // 1. Optimistically update local cache list and broadcast immediately to UI
     final index = _cachedDevices.indexWhere((d) => d["id"] == id);
     if (index != -1) {
-      _cachedDevices[index]["state"] = value;
+      _cachedDevices[index]["value"] = value;
+      if (value is bool) {
+        _cachedDevices[index]["state"] = value;
+      } else if (value is num) {
+        _cachedDevices[index]["state"] = value > 0;
+      }
       _devicesController.add(List.from(_cachedDevices));
       
       final device = _cachedDevices[index];
@@ -265,33 +339,59 @@ class NetworkService {
       if (_isLocalMode) {
         if (isWired && port != null) {
           try {
-            final stateParam = value ? "1" : "0";
-            await http.get(Uri.parse("$localBaseUrl/api/device?port=$port&state=$stateParam")).timeout(const Duration(seconds: 2));
+            final valueStr = value.toString();
+            await http.get(Uri.parse("$localBaseUrl/api/device?port=$port&value=$valueStr")).timeout(const Duration(seconds: 2));
           } catch (_) {
             // Local fallback failed, send to database
-            await _databaseRef.child("${_userBasePath}home/devices/$id/state").set(value);
+            await _databaseRef.child("${_userBasePath}home/devices/$id/value").set(value);
+            if (value is bool) {
+              await _databaseRef.child("${_userBasePath}home/devices/$id/state").set(value);
+            }
           }
         }
       } else {
-        await _databaseRef.child("${_userBasePath}home/devices/$id/state").set(value);
+        await _databaseRef.child("${_userBasePath}home/devices/$id/value").set(value);
+        if (value is bool) {
+          await _databaseRef.child("${_userBasePath}home/devices/$id/state").set(value);
+        }
         // Also keep legacy cloud light sync updated if it's the main light bulb
         if (id == "device_lights") {
-          await _databaseRef.child("${_userBasePath}home/light/").set(value);
+          await _databaseRef.child("${_userBasePath}home/light/").set(value is bool ? value : (value as num) > 0);
         }
       }
+    }
+  }
+
+  /// Commands the ESP32 microcontroller to execute a remote soft reboot
+  Future<void> rebootController() async {
+    if (_isLocalMode) {
+      try {
+        await http.get(Uri.parse("$localBaseUrl/api/reboot")).timeout(const Duration(seconds: 2));
+      } catch (_) {
+        await _databaseRef.child("${_userBasePath}diagnostics/reboot").set(true);
+      }
+    } else {
+      await _databaseRef.child("${_userBasePath}diagnostics/reboot").set(true);
     }
   }
 
   /// Dynamically registers a new custom device into the system
   Future<void> addDevice(Map<String, dynamic> device) async {
     final String id = device["id"] ?? "device_${DateTime.now().millisecondsSinceEpoch}";
+    final valType = device["valueType"] ?? "binary";
+    final dynamic initVal = device["value"] ?? (valType == "dimmer" ? 0 : false);
+    
     final Map<String, dynamic> fullDevice = {
       "id": id,
       "name": device["name"] ?? "Unnamed Device",
       "room": device["room"] ?? "Living Room",
       "isWired": device["isWired"] ?? false,
       "port": device["port"],
-      "state": device["state"] ?? false,
+      "direction": device["direction"] ?? "output",
+      "valueType": valType,
+      "pinMode": device["pinMode"] ?? "default",
+      "state": device["state"] ?? (initVal is bool ? initVal : (initVal is num && initVal > 0)),
+      "value": initVal,
       "icon": device["icon"] ?? "lightbulb",
       "glowColor": device["glowColor"] ?? "amber",
       "status": device["status"] ?? "online",
@@ -334,8 +434,10 @@ class NetworkService {
     _fbSensorSub?.cancel();
     _fbRelaySub?.cancel();
     _fbDevicesSub?.cancel();
+    _fbDiagnosticsSub?.cancel();
     _sensorController.close();
     _relayController.close();
     _devicesController.close();
+    _diagnosticsController.close();
   }
 }
