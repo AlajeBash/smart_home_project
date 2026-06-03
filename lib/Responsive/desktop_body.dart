@@ -1912,6 +1912,83 @@ class _DesktopBodyState extends State<DesktopBody> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text("USER ACCOUNT PROFILE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white30, letterSpacing: 1.5)),
+                  const SizedBox(height: 12),
+                  GlassContainer(
+                    bgOpacity: 0.05,
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: const Color(0xFF8E99F3).withOpacity(0.2),
+                              radius: 20,
+                              child: const Icon(Icons.person_outline_rounded, color: Color(0xFF8E99F3), size: 20),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    FirebaseAuth.instance.currentUser?.email ?? "admin@aminai.local",
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
+                                  const Text(
+                                    "Registered Account Owner",
+                                    style: TextStyle(fontSize: 9.5, color: Colors.white38),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        const Divider(color: Colors.white10, height: 1),
+                        const SizedBox(height: 16),
+                        const Text("ACCOUNT TOKEN (UID)", style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white30)),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                FirebaseAuth.instance.currentUser?.uid ?? "unauthenticated_token",
+                                style: const TextStyle(fontSize: 12, fontFamily: "monospace", color: Colors.white70, letterSpacing: -0.2),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF5C6BC0).withOpacity(0.3),
+                                side: const BorderSide(color: Color(0xFF8E99F3)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              ),
+                              onPressed: () {
+                                final uid = FirebaseAuth.instance.currentUser?.uid;
+                                if (uid != null && uid.isNotEmpty) {
+                                  Clipboard.setData(ClipboardData(text: uid));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text("Account Token (UID) copied to clipboard!"),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.copy_rounded, color: Colors.white, size: 12),
+                              label: const Text("COPY", style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 25),
+
                   const Text("LOCAL MULTICAST HOST CONFIG", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white30, letterSpacing: 1.5)),
                   const SizedBox(height: 12),
                   GlassContainer(

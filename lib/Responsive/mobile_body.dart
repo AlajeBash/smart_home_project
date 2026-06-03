@@ -1818,6 +1818,83 @@ class _MobileBodyState extends State<MobileBody> {
           ),
           const SizedBox(height: 12),
 
+          // Account Profile details card
+          const Text("USER ACCOUNT PROFILE", style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white30, letterSpacing: 0.5)),
+          const SizedBox(height: 6),
+          GlassContainer(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: const Color(0xFF8E99F3).withOpacity(0.2),
+                      radius: 16,
+                      child: const Icon(Icons.person_outline_rounded, color: Color(0xFF8E99F3), size: 16),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            FirebaseAuth.instance.currentUser?.email ?? "admin@aminai.local",
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                          const Text(
+                            "Registered Account Owner",
+                            style: TextStyle(fontSize: 8.5, color: Colors.white38),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Divider(color: Colors.white10, height: 1),
+                const SizedBox(height: 12),
+                const Text("ACCOUNT TOKEN (UID)", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white30)),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        FirebaseAuth.instance.currentUser?.uid ?? "unauthenticated_token",
+                        style: const TextStyle(fontSize: 11, fontFamily: "monospace", color: Colors.white70, letterSpacing: -0.2),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF5C6BC0).withOpacity(0.3),
+                        side: const BorderSide(color: Color(0xFF8E99F3)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                      onPressed: () {
+                        final uid = FirebaseAuth.instance.currentUser?.uid;
+                        if (uid != null && uid.isNotEmpty) {
+                          Clipboard.setData(ClipboardData(text: uid));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Account Token (UID) copied to clipboard!"),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.copy_rounded, color: Colors.white, size: 10),
+                      label: const Text("COPY", style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // Host settings card
           const Text("LOCAL GATEWAY mDNS HOST", style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white30, letterSpacing: 0.5)),
           const SizedBox(height: 6),

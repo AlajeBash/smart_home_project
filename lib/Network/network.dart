@@ -2,9 +2,16 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class NetworkService {
   final DatabaseReference _databaseRef = FirebaseDatabase.instance.ref();
+  
+  /// Dynamically computes the base path for the authenticated user, or empty for legacy/fallback.
+  String get _userBasePath {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    return (uid != null && uid.isNotEmpty) ? "users/$uid/" : "";
+  }
   
   // Local network configuration gateway (mDNS resolving)
   static const String localBaseUrl = "http://aminai-hub.local";
@@ -131,7 +138,7 @@ class NetworkService {
     
     // Setup Firebase database stream subscriptions
     _fbSensorSub?.cancel();
-    _fbSensorSub = _databaseRef.child("sensors").onValue.listen((event) {
+    _fbSensorSub = _databaseRef.child("${_userBasePath}sensors").onValue.listen((event) {
       final data = event.snapshot.value as Map?;
       _sensorController.add({
         "temperature": data?["temperature"] != null ? (data!["temperature"] as num).toDouble() : 24.5,
@@ -140,13 +147,13 @@ class NetworkService {
     });
 
     _fbRelaySub?.cancel();
-    _fbRelaySub = _databaseRef.child("home/light/").onValue.listen((event) {
+    _fbRelaySub = _databaseRef.child("${_userBasePath}home/light/").onValue.listen((event) {
       final state = event.snapshot.value as bool?;
       _relayController.add(state ?? false);
     });
 
     _fbDevicesSub?.cancel();
-    _fbDevicesSub = _databaseRef.child("home/devices").onValue.listen((event) {
+    _fbDevicesSub = _databaseRef.child("${_userBasePath}home/devices").onValue.listen((event) {
       final snapshot = event.snapshot;
       if (!snapshot.exists) {
         // If empty, initialize the database with standard default preloads
@@ -180,7 +187,7 @@ class NetworkService {
   /// Initializes standard default devices in the database
   Future<void> _initializeDefaultDevices() async {
     for (var device in _defaultDevices) {
-      await _databaseRef.child("home/devices/${device['id']}").set(device);
+      await _databaseRef.child("${_userBasePath}home/devices/${device['id']}").set(device);
     }
   }
 
@@ -235,10 +242,10 @@ class NetworkService {
           _relayController.add(value); // Optimistically broadcast local state updates
         }
       } catch (_) {
-        await _databaseRef.child("home/light/").set(value);
+        await _databaseRef.child("${_userBasePath}home/light/").set(value);
       }
     } else {
-      await _databaseRef.child("home/light/").set(value);
+      await _databaseRef.child("${_userBasePath}home/light/").set(value);
     }
   }
 
@@ -262,14 +269,14 @@ class NetworkService {
             await http.get(Uri.parse("$localBaseUrl/api/device?port=$port&state=$stateParam")).timeout(const Duration(seconds: 2));
           } catch (_) {
             // Local fallback failed, send to database
-            await _databaseRef.child("home/devices/$id/state").set(value);
+            await _databaseRef.child("${_userBasePath}home/devices/$id/state").set(value);
           }
         }
       } else {
-        await _databaseRef.child("home/devices/$id/state").set(value);
+        await _databaseRef.child("${_userBasePath}home/devices/$id/state").set(value);
         // Also keep legacy cloud light sync updated if it's the main light bulb
         if (id == "device_lights") {
-          await _databaseRef.child("home/light/").set(value);
+          await _databaseRef.child("${_userBasePath}home/light/").set(value);
         }
       }
     }
@@ -296,7 +303,7 @@ class NetworkService {
       _devicesController.add(List.from(_cachedDevices));
     } else {
       // Cloud database adding
-      await _databaseRef.child("home/devices/$id").set(fullDevice);
+      await _databaseRef.child("${_userBasePath}home/devices/$id").set(fullDevice);
     }
   }
 
@@ -308,7 +315,7 @@ class NetworkService {
       _devicesController.add(List.from(_cachedDevices));
     }
     if (!_isLocalMode) {
-      await _databaseRef.child("home/devices/$id/room").set(newRoom);
+      await _databaseRef.child("${_userBasePath}home/devices/$id/room").set(newRoom);
     }
   }
 
@@ -318,7 +325,7 @@ class NetworkService {
       _cachedDevices.removeWhere((d) => d["id"] == id);
       _devicesController.add(List.from(_cachedDevices));
     } else {
-      await _databaseRef.child("home/devices/$id").remove();
+      await _databaseRef.child("${_userBasePath}home/devices/$id").remove();
     }
   }
 
