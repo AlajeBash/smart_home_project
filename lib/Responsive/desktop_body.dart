@@ -699,6 +699,15 @@ class _DesktopBodyState extends State<DesktopBody> {
             }
 
             final device = statusFiltered[deviceIndex];
+            final String id = device["id"] ?? "";
+            final String name = device["name"] ?? "";
+            final String room = device["room"] ?? "";
+            final bool state = device["state"] ?? false;
+            final String iconStr = device["icon"] ?? "lightbulb";
+            final String glowColorStr = device["glowColor"] ?? "amber";
+            final bool isWired = device["isWired"] ?? false;
+            final int? port = device["port"];
+            final String status = device["status"] ?? "online";
             final String direction = device["direction"] ?? "output";
             final String valueType = device["valueType"] ?? "binary";
             final dynamic value = device["value"] ?? false;
