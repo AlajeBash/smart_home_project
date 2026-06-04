@@ -30,6 +30,7 @@ class NetworkService {
   StreamSubscription? _fbDiagnosticsSub;
 
   List<Map<String, dynamic>> _cachedDevices = [];
+  Map<String, dynamic>? _lastDiagnosticsData;
 
   static final List<Map<String, dynamic>> _defaultDevices = [
     {
@@ -116,12 +117,16 @@ class NetworkService {
         if (_isLocalMode) {
           _isLocalMode = false;
           _enableCloudMode();
+        } else {
+          _emitDiagnostics();
         }
       }
     } catch (_) {
       if (_isLocalMode) {
         _isLocalMode = false;
         _enableCloudMode();
+      } else {
+        _emitDiagnostics();
       }
     }
   }
@@ -221,14 +226,17 @@ class NetworkService {
       final snapshot = event.snapshot;
       if (snapshot.exists && snapshot.value is Map) {
         final Map data = snapshot.value as Map;
-        _diagnosticsController.add({
+        _lastDiagnosticsData = {
           "online": data["online"] ?? false,
           "ip": data["ip"] ?? "0.0.0.0",
           "rssi": data["rssi"] ?? -100,
           "free_heap": data["free_heap"] ?? 0,
           "uptime": data["uptime"] ?? "Offline",
-        });
+          "last_seen": data["last_seen"] ?? 0,
+        };
+        _emitDiagnostics();
       } else {
+        _lastDiagnosticsData = null;
         _diagnosticsController.add({
           "online": false,
           "ip": "0.0.0.0",
@@ -237,6 +245,36 @@ class NetworkService {
           "uptime": "Offline",
         });
       }
+    });
+  }
+
+  /// Calculates and broadcasts active heartbeat presence status to listeners
+  void _emitDiagnostics() {
+    if (_isLocalMode) return; // Direct LAN mode uses its own emitted static diagnostics
+    
+    if (_lastDiagnosticsData == null) {
+      _diagnosticsController.add({
+        "online": false,
+        "ip": "0.0.0.0",
+        "rssi": -100,
+        "free_heap": 0,
+        "uptime": "Offline",
+      });
+      return;
+    }
+    
+    final int lastSeen = _lastDiagnosticsData!["last_seen"] ?? 0;
+    final int now = DateTime.now().millisecondsSinceEpoch;
+    
+    // Mark as online if last seen heartbeat is within the 45-second tolerance window
+    final bool isOnline = lastSeen > 0 && (now - lastSeen < 45000);
+    
+    _diagnosticsController.add({
+      "online": isOnline,
+      "ip": isOnline ? (_lastDiagnosticsData!["ip"] ?? "0.0.0.0") : "0.0.0.0",
+      "rssi": isOnline ? (_lastDiagnosticsData!["rssi"] ?? -100) : -100,
+      "free_heap": isOnline ? (_lastDiagnosticsData!["free_heap"] ?? 0) : 0,
+      "uptime": isOnline ? (_lastDiagnosticsData!["uptime"] ?? "Offline") : "Offline",
     });
   }
 
