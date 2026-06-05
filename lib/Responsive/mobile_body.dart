@@ -2321,6 +2321,7 @@ class _MobileBodyState extends State<MobileBody> {
             _buildDrawerTile(Icons.security_rounded, "Security Panel", active: selectedSection == "Security Panel"),
             _buildDrawerTile(Icons.bar_chart_rounded, "Analytics", active: selectedSection == "Analytics"),
             _buildDrawerTile(Icons.settings_rounded, "Settings", active: selectedSection == "Settings"),
+            _buildDrawerTile(Icons.logout_rounded, "Logout", active: false),
             const Spacer(),
             // User Card
             Padding(
@@ -2354,11 +2355,15 @@ class _MobileBodyState extends State<MobileBody> {
         style: TextStyle(fontSize: 12, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? Colors.white : Colors.white70),
       ),
       selected: active,
-      onTap: () {
-        setState(() {
-          selectedSection = title;
-        });
-        Navigator.pop(context);
+      onTap: () async {
+        if (title == "Logout") {
+          await FirebaseAuth.instance.signOut();
+        } else {
+          setState(() {
+            selectedSection = title;
+          });
+          Navigator.pop(context);
+        }
       },
     );
   }

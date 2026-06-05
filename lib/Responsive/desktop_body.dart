@@ -343,6 +343,7 @@ class _DesktopBodyState extends State<DesktopBody> {
                   _buildSidebarItem(Icons.security_rounded, "Security Panel", active: selectedSection == "Security Panel"),
                   _buildSidebarItem(Icons.bar_chart_rounded, "Analytics", active: selectedSection == "Analytics"),
                   _buildSidebarItem(Icons.settings_rounded, "Settings", active: selectedSection == "Settings"),
+                  _buildSidebarItem(Icons.logout_rounded, "Logout"),
                   const Spacer(),
                   // Active Profile Card
                   GlassContainer(
@@ -2527,10 +2528,14 @@ class _DesktopBodyState extends State<DesktopBody> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            setState(() {
-              selectedSection = title;
-            });
+          onTap: () async {
+            if (title == "Logout") {
+              await FirebaseAuth.instance.signOut();
+            } else {
+              setState(() {
+                selectedSection = title;
+              });
+            }
           },
           borderRadius: BorderRadius.circular(10),
           child: Container(

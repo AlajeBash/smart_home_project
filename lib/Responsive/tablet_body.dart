@@ -2777,10 +2777,14 @@ class _TabletBodyState extends State<TabletBody> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12.0),
       child: InkWell(
-        onTap: () {
-          setState(() {
-            selectedSection = section;
-          });
+        onTap: () async {
+          if (section == "Logout") {
+            await FirebaseAuth.instance.signOut();
+          } else {
+            setState(() {
+              selectedSection = section;
+            });
+          }
         },
         borderRadius: BorderRadius.circular(12),
         child: Container(
@@ -3286,6 +3290,7 @@ class _TabletBodyState extends State<TabletBody> {
                   _buildCompactRailItem(Icons.security_rounded, "Security Panel", active: selectedSection == "Security Panel"),
                   _buildCompactRailItem(Icons.bar_chart_rounded, "Analytics", active: selectedSection == "Analytics"),
                   _buildCompactRailItem(Icons.settings_rounded, "Settings", active: selectedSection == "Settings"),
+                  _buildCompactRailItem(Icons.logout_rounded, "Logout"),
                   const Spacer(),
                   // Active user indicator
                   CircleAvatar(
