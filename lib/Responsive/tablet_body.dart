@@ -1824,6 +1824,20 @@ class _TabletBodyState extends State<TabletBody> {
                               icon: const Icon(Icons.copy_rounded, color: Colors.white, size: 11),
                               label: const Text("COPY", style: TextStyle(fontSize: 9.5, color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
+                            const SizedBox(width: 10),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.redAccent.withOpacity(0.2),
+                                side: const BorderSide(color: Colors.redAccent),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              ),
+                              onPressed: () async {
+                                await FirebaseAuth.instance.signOut();
+                              },
+                              icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 11),
+                              label: const Text("LOGOUT", style: TextStyle(fontSize: 9.5, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                            ),
                           ],
                         ),
                       ],

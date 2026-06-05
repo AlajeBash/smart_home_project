@@ -1980,6 +1980,20 @@ class _MobileBodyState extends State<MobileBody> {
                       icon: const Icon(Icons.copy_rounded, color: Colors.white, size: 10),
                       label: const Text("COPY", style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent.withOpacity(0.2),
+                        side: const BorderSide(color: Colors.redAccent),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                      onPressed: () async {
+                        await FirebaseAuth.instance.signOut();
+                      },
+                      icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 10),
+                      label: const Text("LOGOUT", style: TextStyle(fontSize: 9, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                    ),
                   ],
                 ),
               ],
