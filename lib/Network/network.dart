@@ -475,7 +475,7 @@ class NetworkService {
   }
 
   /// Initializes the user's profile under /users/<uid>/profile if empty.
-  /// Automatically bootstrap 'admin' role if the email is 'admin@aminaicom'.
+  /// Automatically bootstrap 'admin' role if the email is 'admin@aminai.com'.
   Future<void> _initializeUserProfile(User user) async {
     final uid = user.uid;
     final email = user.email ?? "";
@@ -485,7 +485,7 @@ class NetworkService {
     try {
       final snapshot = await profileRef.get();
       String role = "user";
-      if (email.toLowerCase() == "admin@aminaicom") {
+      if (email.toLowerCase() == "admin@aminai.com") {
         role = "admin";
       }
 
@@ -502,7 +502,7 @@ class NetworkService {
       } else {
         final Map? data = snapshot.value as Map?;
         final currentRole = data?["role"] ?? "user";
-        if (email.toLowerCase() == "admin@aminaicom" && currentRole != "admin") {
+        if (email.toLowerCase() == "admin@aminai.com" && currentRole != "admin") {
           await profileRef.child("role").set("admin");
           print("AMINAI Admin System: Auto-upgraded $email to admin");
           logEvent("User auto-upgraded to admin: $email", "auth");
