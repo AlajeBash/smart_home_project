@@ -99,6 +99,13 @@ class NetworkService {
     _probeConnectivity();
     // Regularly probe network state every 15 seconds to handle subnet transitions
     Timer.periodic(const Duration(seconds: 15), (_) => _probeConnectivity());
+
+    // Listen to authentication changes and trigger profile initialization
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (user != null) {
+        _initializeUserProfile(user);
+      }
+    });
   }
 
   /// Check if local subnet mode is active
@@ -466,6 +473,202 @@ class NetworkService {
       await _databaseRef.child("${_userBasePath}home/devices/$id").remove();
     }
   }
+
+  /// Initializes the user's profile under /users/<uid>/profile if empty.
+  /// Automatically bootstrap 'admin' role if the email is 'admin@aminaicom'.
+  Future<void> _initializeUserProfile(User user) async {
+    final uid = user.uid;
+    final email = user.email ?? "";
+    final displayName = user.displayName ?? (email.isNotEmpty ? email.split('@').first : "Anonymous");
+
+    final profileRef = _databaseRef.child("users/$uid/profile");
+    try {
+      final snapshot = await profileRef.get();
+      String role = "user";
+      if (email.toLowerCase() == "admin@aminaicom") {
+        role = "admin";
+      }
+
+      if (!snapshot.exists) {
+        await profileRef.set({
+          "email": email,
+          "role": role,
+          "displayName": displayName,
+          "createdAt": ServerValue.timestamp,
+          "device_uid": "", // Initialized empty for device linking handshake
+        });
+        print("AMINAI Admin System: Initialized profile for $email with role $role");
+        logEvent("New user account registered: $email", "auth");
+      } else {
+        final Map? data = snapshot.value as Map?;
+        final currentRole = data?["role"] ?? "user";
+        if (email.toLowerCase() == "admin@aminaicom" && currentRole != "admin") {
+          await profileRef.child("role").set("admin");
+          print("AMINAI Admin System: Auto-upgraded $email to admin");
+          logEvent("User auto-upgraded to admin: $email", "auth");
+        }
+      }
+    } catch (e) {
+      print("Error initializing user profile in Firebase: $e");
+    }
+  }
+
+  /// Listens to the current user's role in real-time
+  Stream<String> listenToUserRole() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || uid.isEmpty) {
+      return Stream.value("user");
+    }
+    return _databaseRef.child("users/$uid/profile/role").onValue.map((event) {
+      final role = event.snapshot.value as String?;
+      return role ?? "user";
+    });
+  }
+
+  /// Listens to all user profiles (Admin utility)
+  Stream<List<Map<String, dynamic>>> listenToAllUsers() {
+    return _databaseRef.child("users").onValue.map((event) {
+      final List<Map<String, dynamic>> users = [];
+      final snapshot = event.snapshot;
+      if (snapshot.exists && snapshot.value is Map) {
+        final Map data = snapshot.value as Map;
+        data.forEach((key, value) {
+          if (value is Map && value.containsKey("profile")) {
+            final profile = value["profile"] as Map;
+            users.add({
+              "uid": key.toString(),
+              "email": profile["email"] ?? "",
+              "role": profile["role"] ?? "user",
+              "displayName": profile["displayName"] ?? "",
+              "createdAt": profile["createdAt"] ?? 0,
+              "device_uid": profile["device_uid"] ?? "",
+            });
+          }
+        });
+      }
+      return users;
+    });
+  }
+
+  /// Updates a user's role (Admin utility)
+  Future<void> updateUserRole(String targetUid, String newRole) async {
+    await _databaseRef.child("users/$targetUid/profile/role").set(newRole);
+    logEvent("User role updated for UID $targetUid to $newRole", "admin");
+  }
+
+  /// Listens to all registered devices across all users (Admin utility)
+  Stream<List<Map<String, dynamic>>> listenToGlobalDevices() {
+    return _databaseRef.child("users").onValue.map((event) {
+      final List<Map<String, dynamic>> globalDevices = [];
+      final snapshot = event.snapshot;
+      if (snapshot.exists && snapshot.value is Map) {
+        final Map usersData = snapshot.value as Map;
+        usersData.forEach((userKey, userValue) {
+          if (userValue is Map && userValue.containsKey("home") && userValue["home"] is Map) {
+            final home = userValue["home"] as Map;
+            if (home.containsKey("devices") && home["devices"] is Map) {
+              final devices = home["devices"] as Map;
+              final profile = userValue["profile"] as Map?;
+              final userEmail = profile?["email"] ?? "Unknown User";
+
+              devices.forEach((deviceKey, deviceValue) {
+                if (deviceValue is Map) {
+                  final String valType = deviceValue["valueType"] ?? "binary";
+                  final dynamic rawValue = deviceValue["value"] ?? deviceValue["state"] ?? (valType == "dimmer" ? 0 : false);
+                  globalDevices.add({
+                    "id": deviceKey.toString(),
+                    "userUid": userKey.toString(),
+                    "userEmail": userEmail,
+                    "name": deviceValue["name"] ?? "",
+                    "room": deviceValue["room"] ?? "",
+                    "isWired": deviceValue["isWired"] ?? false,
+                    "port": deviceValue["port"],
+                    "direction": deviceValue["direction"] ?? "output",
+                    "valueType": valType,
+                    "pinMode": deviceValue["pinMode"] ?? "default",
+                    "state": deviceValue["state"] ?? (rawValue is bool ? rawValue : (rawValue is num && rawValue > 0)),
+                    "value": rawValue,
+                    "icon": deviceValue["icon"] ?? "lightbulb",
+                    "glowColor": deviceValue["glowColor"] ?? "amber",
+                    "status": deviceValue["status"] ?? "online",
+                  });
+                }
+              });
+            }
+          }
+        });
+      }
+      return globalDevices;
+    });
+  }
+
+  /// Listens to diagnostics telemetry for a specific user (Admin utility)
+  Stream<Map<String, dynamic>> listenToUserDiagnostics(String targetUid) {
+    return _databaseRef.child("users/$targetUid/diagnostics").onValue.map((event) {
+      final snapshot = event.snapshot;
+      if (snapshot.exists && snapshot.value is Map) {
+        final Map data = snapshot.value as Map;
+        final int lastSeen = data["last_seen"] ?? 0;
+        final int now = DateTime.now().millisecondsSinceEpoch;
+        final bool isOnline = lastSeen > 0 && (now - lastSeen < 45000);
+        return {
+          "online": isOnline,
+          "ip": isOnline ? (data["ip"] ?? "0.0.0.0") : "0.0.0.0",
+          "rssi": isOnline ? (data["rssi"] ?? -100) : -100,
+          "free_heap": isOnline ? (data["free_heap"] ?? 0) : 0,
+          "uptime": isOnline ? (data["uptime"] ?? "Offline") : "Offline",
+        };
+      }
+      return {
+        "online": false,
+        "ip": "0.0.0.0",
+        "rssi": -100,
+        "free_heap": 0,
+        "uptime": "Offline",
+      };
+    });
+  }
+
+  /// Commands a specific user's ESP32 microcontroller to execute a soft reboot (Admin utility)
+  Future<void> rebootUserController(String targetUid) async {
+    await _databaseRef.child("users/$targetUid/diagnostics/reboot").set(true);
+    logEvent("Triggered remote reboot for controller of UID $targetUid", "admin");
+  }
+
+  /// Listens to global system-wide activity logs (Admin utility)
+  Stream<List<Map<String, dynamic>>> listenToGlobalLogs() {
+    return _databaseRef.child("logs").limitToLast(100).onValue.map((event) {
+      final List<Map<String, dynamic>> logs = [];
+      final snapshot = event.snapshot;
+      if (snapshot.exists && snapshot.value is Map) {
+        final Map data = snapshot.value as Map;
+        final sortedKeys = data.keys.toList()..sort();
+        for (var key in sortedKeys.reversed) {
+          final val = data[key];
+          if (val is Map) {
+            logs.add({
+              "id": key.toString(),
+              "message": val["message"] ?? "",
+              "type": val["type"] ?? "general",
+              "timestamp": val["timestamp"] ?? 0,
+            });
+          }
+        }
+      }
+      return logs;
+    });
+  }
+
+  /// Logs a system event to the global administrative logger
+  Future<void> logEvent(String message, String type) async {
+    final logRef = _databaseRef.child("logs").push();
+    await logRef.set({
+      "message": message,
+      "type": type,
+      "timestamp": ServerValue.timestamp,
+    });
+  }
+
 
   void dispose() {
     _localPollTimer?.cancel();

@@ -273,6 +273,8 @@ class _MobileBodyState extends State<MobileBody> {
         return _buildAnalyticsView(curTemp, curHum);
       case "Settings":
         return _buildSettingsView();
+      case "Admin Panel":
+        return const AdminDashboard();
       default:
         return _buildDashboardView(curTemp, curHum);
     }
@@ -2321,6 +2323,20 @@ class _MobileBodyState extends State<MobileBody> {
             _buildDrawerTile(Icons.security_rounded, "Security Panel", active: selectedSection == "Security Panel"),
             _buildDrawerTile(Icons.bar_chart_rounded, "Analytics", active: selectedSection == "Analytics"),
             _buildDrawerTile(Icons.settings_rounded, "Settings", active: selectedSection == "Settings"),
+            StreamBuilder<String>(
+              stream: _networkService.listenToUserRole(),
+              builder: (context, snapshot) {
+                final role = snapshot.data ?? "user";
+                if (role == "admin") {
+                  return _buildDrawerTile(
+                    Icons.admin_panel_settings_rounded,
+                    "Admin Panel",
+                    active: selectedSection == "Admin Panel",
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
             _buildDrawerTile(Icons.logout_rounded, "Logout", active: false),
             const Spacer(),
             // User Card

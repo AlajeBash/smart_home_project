@@ -272,6 +272,8 @@ class _TabletBodyState extends State<TabletBody> {
         return _buildAnalyticsView(curTemp, curHum);
       case "Settings":
         return _buildSettingsView();
+      case "Admin Panel":
+        return const AdminDashboard();
       default:
         return _buildDashboardView(curTemp, curHum);
     }
@@ -3290,6 +3292,20 @@ class _TabletBodyState extends State<TabletBody> {
                   _buildCompactRailItem(Icons.security_rounded, "Security Panel", active: selectedSection == "Security Panel"),
                   _buildCompactRailItem(Icons.bar_chart_rounded, "Analytics", active: selectedSection == "Analytics"),
                   _buildCompactRailItem(Icons.settings_rounded, "Settings", active: selectedSection == "Settings"),
+                  StreamBuilder<String>(
+                    stream: _networkService.listenToUserRole(),
+                    builder: (context, snapshot) {
+                      final role = snapshot.data ?? "user";
+                      if (role == "admin") {
+                        return _buildCompactRailItem(
+                          Icons.admin_panel_settings_rounded,
+                          "Admin Panel",
+                          active: selectedSection == "Admin Panel",
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
                   _buildCompactRailItem(Icons.logout_rounded, "Logout"),
                   const Spacer(),
                   // Active user indicator
